@@ -9,6 +9,7 @@ declare namespace Cloudflare {
     SESSION_SECRET: string;
     OIDC_ISSUER: string;
     OIDC_CLIENT_ID: string;
+    OIDC_CLIENT_SECRET?: string;
     ADMIN_EMAILS: string;
   }
 }

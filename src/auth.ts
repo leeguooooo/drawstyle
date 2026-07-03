@@ -18,7 +18,7 @@ interface JwtHeader {
   typ?: string;
 }
 
-interface JwtClaims {
+export interface JwtClaims {
   iss?: string;
   sub?: string;
   aud?: string | string[];
