@@ -64,6 +64,6 @@ async function styleCard(
     <h2><a href="/${locale}/s/${escapeHtml(style.slug)}">${escapeHtml(style.name)}</a></h2>
     <p><span class="badge">${escapeHtml(style.kind)}</span> <span class="badge">${escapeHtml(categoryLabel(style.category, locale))}</span></p>
     <p class="muted">♥${style.likes_count} · ⇩${style.pulls_count}</p>
-    <div class="cmd"><pre>chatgpt-imagegen "${escapeHtml(d.promptPlaceholder)}" --style-online ${escapeHtml(style.slug)}</pre><button type="button" class="secondary copy" data-copy='chatgpt-imagegen "${escapeHtml(d.promptPlaceholder)}" --style-online ${escapeHtml(style.slug)}' data-copied="${escapeHtml(d.copied)}">${escapeHtml(d.copy)}</button></div>
+    <div class="cmd"><pre>chatgpt-imagegen --style-online ${escapeHtml(style.slug)} "${escapeHtml(d.promptPlaceholder)}"</pre><button type="button" class="secondary copy" data-copy='chatgpt-imagegen --style-online ${escapeHtml(style.slug)} "${escapeHtml(d.promptPlaceholder)}"' data-copied="${escapeHtml(d.copied)}">${escapeHtml(d.copy)}</button></div>
   </article>`;
 }
