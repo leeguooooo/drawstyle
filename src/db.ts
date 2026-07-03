@@ -71,6 +71,43 @@ export async function createUser(
   return row;
 }
 
+export async function upsertUser(
+  db: D1Database,
+  input: CreateUserInput,
+): Promise<UserRow> {
+  const created_at = new Date().toISOString();
+  const row = await db
+    .prepare(
+      `INSERT INTO users (oidc_sub, email, display_name, created_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(oidc_sub) DO UPDATE SET
+         email = excluded.email,
+         display_name = excluded.display_name
+       RETURNING id, oidc_sub, email, display_name, created_at`,
+    )
+    .bind(input.oidc_sub, input.email, input.display_name, created_at)
+    .first<UserRow>();
+  if (!row) {
+    throw new Error("upsertUser: INSERT ... RETURNING produced no row");
+  }
+  return row;
+}
+
+export async function getUserById(
+  db: D1Database,
+  id: number,
+): Promise<UserRow | null> {
+  const row = await db
+    .prepare(
+      `SELECT id, oidc_sub, email, display_name, created_at
+       FROM users
+       WHERE id = ?`,
+    )
+    .bind(id)
+    .first<UserRow>();
+  return row ?? null;
+}
+
 export interface CreateStyleInput {
   slug: string;
   name: string;
