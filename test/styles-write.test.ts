@@ -2,6 +2,8 @@ import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { SESSION_COOKIE_NAME, signSession } from "../src/auth";
 import {
+  addImage,
+  addTags,
   createStyle,
   getImagesForStyle,
   getStyleBySlug,
@@ -53,6 +55,32 @@ async function postForm(form: FormData, cookie?: string) {
     },
     env,
   );
+}
+
+async function requestWithSession(
+  path: string,
+  method: "PUT" | "POST" | "DELETE",
+  cookie: string,
+  body?: BodyInit,
+) {
+  return app.request(
+    path,
+    {
+      method,
+      body,
+      headers: { Cookie: cookie, "X-Requested-With": "drawstyle" },
+    },
+    env,
+  );
+}
+
+function editForm(): FormData {
+  const form = new FormData();
+  form.set("name", "Edited Name");
+  form.set("snippet", "edited snippet");
+  form.set("category", "slides");
+  form.append("tag", "edited");
+  return form;
 }
 
 describe("styles write API", () => {
@@ -218,5 +246,271 @@ describe("styles write API", () => {
     expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
       "rate_limited",
     );
+  });
+
+  it("stores approved owner edits as a pending revision without changing live fields", async () => {
+    const { user, cookie } = await sessionCookie();
+    const style = await createStyle(env.DB, {
+      slug: uniq("approved-edit"),
+      name: "Live Name",
+      owner_user_id: user.id,
+      kind: "style",
+      category: "report",
+      status: "approved",
+      snippet: "live snippet",
+    });
+    await addTags(env.DB, style.id, ["live"]);
+    const form = editForm();
+    form.append("ref[]", imageFile("ref.png"));
+
+    const res = await requestWithSession(
+      `/api/styles/${style.slug}`,
+      "PUT",
+      cookie,
+      form,
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      style: {
+        slug: style.slug,
+        status: "approved",
+        pending_revision: true,
+        version: 1,
+      },
+    });
+
+    const fetched = await getStyleBySlug(env.DB, style.slug);
+    expect(fetched?.name).toBe("Live Name");
+    expect(fetched?.snippet).toBe("live snippet");
+    expect(fetched?.category).toBe("report");
+    expect(await getTagsForStyle(env.DB, style.id)).toEqual(["live"]);
+    const revision = JSON.parse(fetched?.pending_revision ?? "{}") as {
+      name: string;
+      snippet: string;
+      category: string;
+      tags: string[];
+      ref_image_ids: number[];
+    };
+    expect(revision).toMatchObject({
+      name: "Edited Name",
+      snippet: "edited snippet",
+      category: "slides",
+      tags: ["edited"],
+    });
+    expect(revision.ref_image_ids).toHaveLength(1);
+    const staged = await getImagesForStyle(env.DB, style.id, {
+      role: "reference",
+      pending: 1,
+    });
+    expect(staged.map((image) => image.id)).toEqual(revision.ref_image_ids);
+  });
+
+  it("overwrites the existing approved pending revision", async () => {
+    const { user, cookie } = await sessionCookie();
+    const style = await createStyle(env.DB, {
+      slug: uniq("approved-overwrite"),
+      name: "Live",
+      owner_user_id: user.id,
+      kind: "style",
+      category: "report",
+      status: "approved",
+    });
+    const first = editForm();
+    first.set("name", "First");
+    first.append("ref[]", imageFile("first.png"));
+    expect(
+      (await requestWithSession(`/api/styles/${style.slug}`, "PUT", cookie, first))
+        .status,
+    ).toBe(200);
+
+    const second = editForm();
+    second.set("name", "Second");
+    second.append("ref[]", imageFile("second.png", new Uint8Array([...PNG, 2])));
+    const res = await requestWithSession(
+      `/api/styles/${style.slug}`,
+      "PUT",
+      cookie,
+      second,
+    );
+    expect(res.status).toBe(200);
+
+    const fetched = await getStyleBySlug(env.DB, style.slug);
+    const revision = JSON.parse(fetched?.pending_revision ?? "{}") as {
+      name: string;
+      ref_image_ids: number[];
+    };
+    expect(revision.name).toBe("Second");
+    const staged = await getImagesForStyle(env.DB, style.id, {
+      role: "reference",
+      pending: 1,
+    });
+    expect(staged).toHaveLength(1);
+    expect(staged[0].id).toBe(revision.ref_image_ids[0]);
+  });
+
+  it("edits pending submissions in place", async () => {
+    const { user, cookie } = await sessionCookie();
+    const style = await createStyle(env.DB, {
+      slug: uniq("pending-edit"),
+      name: "Pending",
+      owner_user_id: user.id,
+      kind: "style",
+      category: "report",
+      status: "pending",
+      snippet: "old",
+    });
+    await addTags(env.DB, style.id, ["old"]);
+
+    const res = await requestWithSession(
+      `/api/styles/${style.slug}`,
+      "PUT",
+      cookie,
+      editForm(),
+    );
+    expect(res.status).toBe(200);
+    const fetched = await getStyleBySlug(env.DB, style.slug);
+    expect(fetched?.status).toBe("pending");
+    expect(fetched?.name).toBe("Edited Name");
+    expect(fetched?.snippet).toBe("edited snippet");
+    expect(fetched?.category).toBe("slides");
+    expect(fetched?.pending_revision).toBeNull();
+    expect(await getTagsForStyle(env.DB, style.id)).toEqual(["edited"]);
+  });
+
+  it("resubmits rejected owner styles as pending", async () => {
+    const { user, cookie } = await sessionCookie();
+    const style = await createStyle(env.DB, {
+      slug: uniq("rejected-edit"),
+      name: "Rejected",
+      owner_user_id: user.id,
+      kind: "style",
+      category: "report",
+      status: "rejected",
+      snippet: "old",
+    });
+    await env.DB.prepare(
+      `UPDATE drawstyle_styles
+       SET review_note = ?
+       WHERE id = ?`,
+    )
+      .bind("needs work", style.id)
+      .run();
+
+    const res = await requestWithSession(
+      `/api/styles/${style.slug}`,
+      "PUT",
+      cookie,
+      editForm(),
+    );
+    expect(res.status).toBe(200);
+    const fetched = await getStyleBySlug(env.DB, style.slug);
+    expect(fetched?.status).toBe("pending");
+    expect(fetched?.review_note).toBeNull();
+    expect(fetched?.name).toBe("Edited Name");
+  });
+
+  it("rejects owner edits with immutable slug or kind fields", async () => {
+    const { user, cookie } = await sessionCookie();
+    const style = await createStyle(env.DB, {
+      slug: uniq("immutable"),
+      name: "Immutable",
+      owner_user_id: user.id,
+      kind: "style",
+      category: "report",
+      status: "pending",
+    });
+    for (const field of ["slug", "kind"]) {
+      const form = editForm();
+      form.set(field, "nope");
+      const res = await requestWithSession(
+        `/api/styles/${style.slug}`,
+        "PUT",
+        cookie,
+        form,
+      );
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+        "immutable_field",
+      );
+    }
+  });
+
+  it("forbids edits by another user", async () => {
+    const owner = await makeUser();
+    const { cookie } = await sessionCookie();
+    const style = await createStyle(env.DB, {
+      slug: uniq("not-owner"),
+      name: "Not Owner",
+      owner_user_id: owner.id,
+      kind: "style",
+      category: "report",
+      status: "approved",
+    });
+
+    const res = await requestWithSession(
+      `/api/styles/${style.slug}`,
+      "PUT",
+      cookie,
+      editForm(),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("likes and unlikes approved styles idempotently", async () => {
+    const owner = await makeUser();
+    const style = await createStyle(env.DB, {
+      slug: uniq("like"),
+      name: "Like",
+      owner_user_id: owner.id,
+      kind: "style",
+      category: "report",
+      status: "approved",
+    });
+    const { cookie } = await sessionCookie();
+
+    const first = await requestWithSession(
+      `/api/styles/${style.slug}/like`,
+      "POST",
+      cookie,
+    );
+    expect(first.status).toBe(200);
+    expect(await first.json()).toEqual({ likes_count: 1 });
+
+    const duplicate = await requestWithSession(
+      `/api/styles/${style.slug}/like`,
+      "POST",
+      cookie,
+    );
+    expect(duplicate.status).toBe(200);
+    expect(await duplicate.json()).toEqual({ likes_count: 1 });
+
+    const unlike = await requestWithSession(
+      `/api/styles/${style.slug}/like`,
+      "DELETE",
+      cookie,
+    );
+    expect(unlike.status).toBe(200);
+    expect(await unlike.json()).toEqual({ likes_count: 0 });
+    expect((await getStyleBySlug(env.DB, style.slug))?.likes_count).toBe(0);
+  });
+
+  it("returns 404 when liking non-approved styles", async () => {
+    const owner = await makeUser();
+    const pending = await createStyle(env.DB, {
+      slug: uniq("like-pending"),
+      name: "Pending",
+      owner_user_id: owner.id,
+      kind: "style",
+      category: "report",
+      status: "pending",
+    });
+    const { cookie } = await sessionCookie();
+
+    const res = await requestWithSession(
+      `/api/styles/${pending.slug}/like`,
+      "POST",
+      cookie,
+    );
+    expect(res.status).toBe(404);
   });
 });

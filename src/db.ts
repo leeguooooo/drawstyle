@@ -214,6 +214,30 @@ export async function addTags(
   await db.batch(statements);
 }
 
+export async function replaceTags(
+  db: D1Database,
+  styleId: number,
+  tags: string[],
+): Promise<void> {
+  const statements = [
+    db
+      .prepare(
+        `DELETE FROM drawstyle_style_tags
+         WHERE style_id = ?`,
+      )
+      .bind(styleId),
+    ...tags.map((tag) =>
+      db
+        .prepare(
+          `INSERT OR IGNORE INTO drawstyle_style_tags (style_id, tag)
+           VALUES (?, ?)`,
+        )
+        .bind(styleId, tag),
+    ),
+  ];
+  await db.batch(statements);
+}
+
 export async function getImagesByKey(
   db: D1Database,
   r2_key: string,
@@ -366,6 +390,106 @@ export async function getImagesForStyle(
   return result.results;
 }
 
+export interface UpdateStyleFieldsInput {
+  name: string;
+  snippet: string;
+  category: string;
+  status?: StyleStatus;
+  pending_revision?: string | null;
+  review_note?: string | null;
+}
+
+export async function updateStyleFields(
+  db: D1Database,
+  styleId: number,
+  input: UpdateStyleFieldsInput,
+): Promise<StyleRow> {
+  const current = await db
+    .prepare(
+      `SELECT status, pending_revision, review_note
+       FROM drawstyle_styles
+       WHERE id = ?`,
+    )
+    .bind(styleId)
+    .first<Pick<StyleRow, "status" | "pending_revision" | "review_note">>();
+  if (!current) {
+    throw new Error("updateStyleFields: style not found");
+  }
+
+  const row = await db
+    .prepare(
+      `UPDATE drawstyle_styles
+       SET name = ?,
+           snippet = ?,
+           category = ?,
+           status = ?,
+           pending_revision = ?,
+           review_note = ?,
+           updated_at = ?
+       WHERE id = ?
+       RETURNING id, slug, name, owner_user_id, kind, snippet, category, status, version,
+                 review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at`,
+    )
+    .bind(
+      input.name,
+      input.snippet,
+      input.category,
+      input.status ?? current.status,
+      input.pending_revision === undefined
+        ? current.pending_revision
+        : input.pending_revision,
+      input.review_note === undefined ? current.review_note : input.review_note,
+      new Date().toISOString(),
+      styleId,
+    )
+    .first<StyleRow>();
+  if (!row) {
+    throw new Error("updateStyleFields: UPDATE ... RETURNING produced no row");
+  }
+  return row;
+}
+
+export async function setPendingRevision(
+  db: D1Database,
+  styleId: number,
+  pendingRevision: string | null,
+): Promise<StyleRow> {
+  const row = await db
+    .prepare(
+      `UPDATE drawstyle_styles
+       SET pending_revision = ?,
+           updated_at = ?
+       WHERE id = ?
+       RETURNING id, slug, name, owner_user_id, kind, snippet, category, status, version,
+                 review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at`,
+    )
+    .bind(pendingRevision, new Date().toISOString(), styleId)
+    .first<StyleRow>();
+  if (!row) {
+    throw new Error("setPendingRevision: UPDATE ... RETURNING produced no row");
+  }
+  return row;
+}
+
+export async function deleteImagesByIds(
+  db: D1Database,
+  imageIds: number[],
+): Promise<void> {
+  if (imageIds.length === 0) {
+    return;
+  }
+  await db.batch(
+    imageIds.map((id) =>
+      db
+        .prepare(
+          `DELETE FROM drawstyle_style_images
+           WHERE id = ?`,
+        )
+        .bind(id),
+    ),
+  );
+}
+
 export async function incrementPullsCount(
   db: D1Database,
   styleId: number,
@@ -395,6 +519,58 @@ export async function countUserStylesSince(
     .bind(userId, sinceIso)
     .first<{ count: number }>();
   return row?.count ?? 0;
+}
+
+export async function likeStyle(
+  db: D1Database,
+  userId: number,
+  styleId: number,
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db.batch([
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO drawstyle_likes (user_id, style_id, created_at)
+         VALUES (?, ?, ?)`,
+      )
+      .bind(userId, styleId, now),
+    db
+      .prepare(
+        `UPDATE drawstyle_styles
+         SET likes_count = (
+           SELECT COUNT(*) FROM drawstyle_likes WHERE style_id = ?
+         ),
+         updated_at = ?
+         WHERE id = ?`,
+      )
+      .bind(styleId, now, styleId),
+  ]);
+}
+
+export async function unlikeStyle(
+  db: D1Database,
+  userId: number,
+  styleId: number,
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db.batch([
+    db
+      .prepare(
+        `DELETE FROM drawstyle_likes
+         WHERE user_id = ? AND style_id = ?`,
+      )
+      .bind(userId, styleId),
+    db
+      .prepare(
+        `UPDATE drawstyle_styles
+         SET likes_count = (
+           SELECT COUNT(*) FROM drawstyle_likes WHERE style_id = ?
+         ),
+         updated_at = ?
+         WHERE id = ?`,
+      )
+      .bind(styleId, now, styleId),
+  ]);
 }
 
 export async function listCuratedTags(db: D1Database): Promise<string[]> {
