@@ -121,7 +121,7 @@ export function page(opts: PageOptions): string {
         <a href="/${locale}/me">${escapeHtml(d.navMe)}</a>
         <a href="/${locale}/admin">${escapeHtml(d.navAdmin)}</a>
         <a href="${switchHref}">${escapeHtml(d.langSwitch)}</a>
-        ${user ? `<span class="muted">${escapeHtml(user.display_name)}</span><a href="/auth/logout">${escapeHtml(d.navLogout)}</a>` : `<a href="/auth/login">${escapeHtml(d.navLogin)}</a>`}
+        ${user ? `<span class="muted">${escapeHtml(user.display_name)}</span><a href="${home}" data-action="/auth/logout">${escapeHtml(d.navLogout)}</a>` : `<a href="/auth/login">${escapeHtml(d.navLogin)}</a>`}
       </div>
     </nav>
   </header>
@@ -142,6 +142,7 @@ export function page(opts: PageOptions): string {
     document.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-action]');
       if (!button) return;
+      event.preventDefault();
       const res = await fetch(button.dataset.action, {method: button.dataset.method || 'POST', headers:{'X-Requested-With':'drawstyle'}});
       if (res.ok) location.reload();
       else alert((await res.text()).slice(0, 500));

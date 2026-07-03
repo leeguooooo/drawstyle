@@ -173,9 +173,31 @@ describe("web OIDC login", () => {
     });
   });
 
-  it("clears the session cookie on logout", async () => {
-    const res = await app.request("https://drawstyle.leeguoo.com/auth/logout", {}, env);
+  it("clears the session cookie on logout via POST with the CSRF header", async () => {
+    const res = await app.request(
+      "https://drawstyle.leeguoo.com/auth/logout",
+      { method: "POST", headers: { "X-Requested-With": "drawstyle" } },
+      env,
+    );
     expect(res.status).toBe(302);
     expect(res.headers.get("Set-Cookie")).toContain(`${SESSION_COOKIE_NAME}=;`);
+  });
+
+  it("rejects logout without the CSRF header or via GET", async () => {
+    const noHeader = await app.request(
+      "https://drawstyle.leeguoo.com/auth/logout",
+      { method: "POST" },
+      env,
+    );
+    expect(noHeader.status).toBe(403);
+    expect(noHeader.headers.get("Set-Cookie")).toBeNull();
+
+    const get = await app.request(
+      "https://drawstyle.leeguoo.com/auth/logout",
+      {},
+      env,
+    );
+    expect(get.status).toBe(404);
+    expect(get.headers.get("Set-Cookie")).toBeNull();
   });
 });

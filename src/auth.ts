@@ -23,6 +23,7 @@ export interface JwtClaims {
   sub?: string;
   aud?: string | string[];
   exp?: number;
+  nbf?: number;
   email?: string;
   name?: string;
   display_name?: string;
@@ -156,7 +157,14 @@ async function verifyJwt(token: string, env: Env): Promise<JwtClaims | null> {
   if (claims.iss !== env.OIDC_ISSUER.replace(/\/+$/g, "")) {
     return null;
   }
-  if (!claims.sub || !claims.exp || claims.exp <= Math.floor(Date.now() / 1000)) {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!claims.sub || !claims.exp || claims.exp <= nowSeconds) {
+    return null;
+  }
+  if (
+    claims.nbf !== undefined &&
+    (typeof claims.nbf !== "number" || claims.nbf > nowSeconds)
+  ) {
     return null;
   }
   if (!hasAcceptedAudience(claims.aud)) {
@@ -164,7 +172,9 @@ async function verifyJwt(token: string, env: Env): Promise<JwtClaims | null> {
   }
 
   const keys = await loadJwks(env);
-  const jwk = keys.find((key) => key.kid === header.kid) ?? keys[0];
+  // Exact kid match only — falling back to keys[0] would verify tokens signed
+  // by an unknown key against whichever key happens to be listed first.
+  const jwk = keys.find((key) => key.kid === header.kid);
   if (!jwk) {
     return null;
   }

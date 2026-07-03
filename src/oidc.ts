@@ -218,7 +218,16 @@ oidcRoutes.get("/callback", async (c) => {
   return c.redirect("/");
 });
 
-oidcRoutes.get("/logout", (c) => {
+// POST + custom header: logout is a session-cookie state change, so it gets
+// the same CSRF gate as src/auth.ts resolveSessionUser (a bare <img>/<a> GET
+// from another origin must not be able to log the user out).
+oidcRoutes.post("/logout", (c) => {
+  if (c.req.header("X-Requested-With") !== "drawstyle") {
+    return c.json(
+      { error: { code: "csrf_required", message: "X-Requested-With required" } },
+      403,
+    );
+  }
   deleteCookie(c, SESSION_COOKIE_NAME, { path: "/" });
   return c.redirect("/");
 });

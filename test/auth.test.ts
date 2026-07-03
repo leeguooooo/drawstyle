@@ -63,8 +63,11 @@ async function createJwtSigner() {
   publicJwk.alg = "RS256";
   publicJwk.use = "sig";
 
-  async function sign(claims: Record<string, unknown>): Promise<string> {
-    const header = { alg: "RS256", kid: "test-key", typ: "JWT" };
+  async function sign(
+    claims: Record<string, unknown>,
+    kid = "test-key",
+  ): Promise<string> {
+    const header = { alg: "RS256", kid, typ: "JWT" };
     const encodedHeader = base64Url(
       new TextEncoder().encode(JSON.stringify(header)),
     );
@@ -84,7 +87,7 @@ async function createJwtSigner() {
 }
 
 async function installTestJwks(): Promise<{
-  sign: (claims: Record<string, unknown>) => Promise<string>;
+  sign: (claims: Record<string, unknown>, kid?: string) => Promise<string>;
 }> {
   const { publicJwk, sign } = await createJwtSigner();
   setJwksFetcher(async (url) => {
@@ -174,6 +177,30 @@ describe("auth middleware", () => {
       env,
     );
     expect(wrongIssuer.status).toBe(401);
+  });
+
+  it("rejects tokens whose kid is not in the JWKS", async () => {
+    const { sign } = await installTestJwks();
+    const token = await sign(claims(), "unknown-key");
+
+    const res = await makeApp().request(
+      "/me",
+      { headers: { Authorization: `Bearer ${token}` } },
+      env,
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects tokens that are not yet valid (future nbf)", async () => {
+    const { sign } = await installTestJwks();
+    const token = await sign(claims({ nbf: Math.floor(Date.now() / 1000) + 300 }));
+
+    const res = await makeApp().request(
+      "/me",
+      { headers: { Authorization: `Bearer ${token}` } },
+      env,
+    );
+    expect(res.status).toBe(401);
   });
 
   it("accepts a signed session cookie", async () => {
