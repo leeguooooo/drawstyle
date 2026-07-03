@@ -1,59 +1,154 @@
+import { setCookie } from "hono/cookie";
 import { Hono } from "hono";
 import { adminRoutes } from "./api/admin";
 import { stylesReadRoutes } from "./api/styles-read";
 import { stylesWriteRoutes } from "./api/styles-write";
 import { authOptional, isAdminEmail, type AuthVariables } from "./auth";
 import { imageProxy } from "./images";
+import { isLocale, LOCALES, pickLocale, type Locale } from "./i18n";
 import { oidcRoutes } from "./oidc";
 import { adminPage } from "./pages/admin";
 import { detailPage } from "./pages/detail";
 import { galleryPage } from "./pages/gallery";
 import { mePage } from "./pages/me";
 import { submitPage } from "./pages/submit";
+import { seoRoutes } from "./seo";
+
+export const LANG_COOKIE_NAME = "lang";
+const LANG_COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
 
 const app = new Hono<{ Bindings: Env; Variables: Partial<AuthVariables> }>();
 
+interface LocaleRequestContext {
+  req: { header: (name: string) => string | undefined; raw: Request };
+}
+
+function requestLocale(c: LocaleRequestContext): Locale {
+  // Parse the one cookie by hand so this helper only needs a Request-shaped
+  // object, not a full Hono context.
+  return pickLocale(
+    getCookieValue(c.req.header("Cookie"), LANG_COOKIE_NAME),
+    c.req.header("Accept-Language"),
+  );
+}
+
+function getCookieValue(header: string | undefined, name: string): string | undefined {
+  if (!header) {
+    return undefined;
+  }
+  for (const part of header.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) {
+      return rest.join("=");
+    }
+  }
+  return undefined;
+}
+
+// Redirect an unprefixed HTML path to its localized equivalent, preserving the
+// query string. 301 for content URLs (search engines should transfer rank);
+// the root `/` uses 302 because its target varies per visitor.
+function localeRedirect(
+  c: LocaleRequestContext & {
+    redirect: (url: string, status?: 301 | 302) => Response;
+  },
+  pathAfterLocale: string,
+  status: 301 | 302,
+): Response {
+  const locale = requestLocale(c);
+  const search = new URL(c.req.raw.url).search;
+  return c.redirect(`/${locale}${pathAfterLocale}${search}`, status);
+}
+
+// --- infrastructure (unprefixed) ---
 app.get("/healthz", (c) => c.json({ ok: true }));
 app.route("/auth", oidcRoutes);
-app.get("/", authOptional, async (c) =>
-  c.html(await galleryPage(c.env.DB, new URL(c.req.url).origin, c.var.user)),
-);
-app.get("/s/:slug", authOptional, async (c) => {
-  const html = await detailPage(
-    c.env.DB,
-    new URL(c.req.url).origin,
-    c.req.param("slug"),
-    c.var.user,
-  );
-  return html ? c.html(html) : c.notFound();
-});
-app.get("/submit", authOptional, async (c) => {
-  if (!c.var.user) {
-    return c.redirect("/auth/login");
-  }
-  return c.html(
-    await submitPage(
-      c.env.DB,
-      { fork: c.req.query("fork"), edit: c.req.query("edit") },
-      c.var.user,
-    ),
-  );
-});
-app.get("/me", authOptional, async (c) => {
-  if (!c.var.user) {
-    return c.redirect("/auth/login");
-  }
-  return c.html(await mePage(c.env.DB, c.var.user));
-});
-app.get("/admin", authOptional, async (c) => {
-  if (!c.var.user || !isAdminEmail(c.var.user.email, c.env)) {
-    return c.text("forbidden", 403);
-  }
-  return c.html(await adminPage(c.env.DB, c.var.user));
-});
 app.get("/img/:key", authOptional, imageProxy);
+app.route("/", seoRoutes);
 app.route("/api", stylesReadRoutes);
 app.route("/api", stylesWriteRoutes);
 app.route("/api", adminRoutes);
+
+// --- language switcher: set the lang cookie, then bounce back ---
+app.get("/lang/:locale", (c) => {
+  const locale = c.req.param("locale");
+  if (!isLocale(locale)) {
+    return c.notFound();
+  }
+  setCookie(c, LANG_COOKIE_NAME, locale, {
+    path: "/",
+    maxAge: LANG_COOKIE_MAX_AGE,
+    sameSite: "Lax",
+  });
+  const to = c.req.query("to") ?? "";
+  // Only same-site absolute paths; anything else falls back to the locale home.
+  const target = to.startsWith("/") && !to.startsWith("//") ? to : `/${locale}/`;
+  return c.redirect(target, 302);
+});
+
+// --- root + legacy unprefixed page URLs redirect into a locale ---
+app.get("/", (c) => localeRedirect(c, "/", 302));
+app.get("/s/:slug", (c) =>
+  localeRedirect(c, `/s/${encodeURIComponent(c.req.param("slug"))}`, 301),
+);
+app.get("/submit", (c) => localeRedirect(c, "/submit", 301));
+app.get("/me", (c) => localeRedirect(c, "/me", 301));
+app.get("/admin", (c) => localeRedirect(c, "/admin", 301));
+
+// --- localized HTML pages ---
+// Registered as literal /zh/... and /en/... routes (no regex params: Hono's
+// RegExpRouter inlines `{zh|en}` alternations unwrapped, which mis-matches).
+for (const locale of LOCALES) {
+  app.get(`/${locale}`, (c) => c.redirect(`/${locale}/`, 301));
+
+  app.get(`/${locale}/`, authOptional, async (c) =>
+    c.html(
+      await galleryPage(c.env.DB, new URL(c.req.url).origin, locale, c.var.user, {
+        q: c.req.query("q"),
+        category: c.req.query("category"),
+        tags: c.req.queries("tag") ?? [],
+      }),
+    ),
+  );
+
+  app.get(`/${locale}/s/:slug`, authOptional, async (c) => {
+    const html = await detailPage(
+      c.env.DB,
+      new URL(c.req.url).origin,
+      locale,
+      c.req.param("slug"),
+      c.var.user,
+    );
+    return html ? c.html(html) : c.notFound();
+  });
+
+  app.get(`/${locale}/submit`, authOptional, async (c) => {
+    if (!c.var.user) {
+      return c.redirect("/auth/login");
+    }
+    return c.html(
+      await submitPage(
+        c.env.DB,
+        locale,
+        { fork: c.req.query("fork"), edit: c.req.query("edit") },
+        c.var.user,
+      ),
+    );
+  });
+
+  app.get(`/${locale}/me`, authOptional, async (c) => {
+    if (!c.var.user) {
+      return c.redirect("/auth/login");
+    }
+    return c.html(await mePage(c.env.DB, locale, c.var.user));
+  });
+
+  app.get(`/${locale}/admin`, authOptional, async (c) => {
+    if (!c.var.user || !isAdminEmail(c.var.user.email, c.env)) {
+      return c.text("forbidden", 403);
+    }
+    return c.html(await adminPage(c.env.DB, locale, c.var.user));
+  });
+}
 
 export default app;

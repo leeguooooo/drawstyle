@@ -783,6 +783,26 @@ export async function unlikeStyle(
   ]);
 }
 
+export interface SitemapEntry {
+  slug: string;
+  updated_at: string;
+}
+
+// All approved styles for sitemap.xml — slug + lastmod only, no pagination.
+export async function listApprovedSlugsForSitemap(
+  db: D1Database,
+): Promise<SitemapEntry[]> {
+  const result = await db
+    .prepare(
+      `SELECT slug, updated_at
+       FROM drawstyle_styles
+       WHERE status = 'approved'
+       ORDER BY created_at DESC`,
+    )
+    .all<SitemapEntry>();
+  return result.results;
+}
+
 export async function listCuratedTags(db: D1Database): Promise<string[]> {
   const result = await db
     .prepare(

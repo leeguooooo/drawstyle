@@ -48,7 +48,7 @@ describe("SSR pages", () => {
     const style = await approvedStyle(owner.id, { name: "Gallery Style" });
     await addExample(style.id);
 
-    const res = await app.request("/", {}, env);
+    const res = await app.request("/zh/", {}, env);
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("Gallery Style");
@@ -61,18 +61,18 @@ describe("SSR pages", () => {
     const owner = await makeUser();
     const style = await approvedStyle(owner.id, { name: "Detail Style" });
 
-    const res = await app.request(`/s/${style.slug}`, {}, env);
+    const res = await app.request(`/zh/s/${style.slug}`, {}, env);
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("Detail Style");
     expect(html).toContain("page snippet");
     expect(html).toContain(`chatgpt-imagegen style pull ${style.slug}`);
     expect(html).toContain(`/api/styles/${style.slug}/like`);
-    expect(html).toContain(`/submit?fork=${style.slug}`);
+    expect(html).toContain(`/zh/submit?fork=${style.slug}`);
   });
 
   it("redirects anonymous submit users to login", async () => {
-    const res = await app.request("/submit", {}, env);
+    const res = await app.request("/zh/submit", {}, env);
     expect(res.status).toBe(302);
     expect(res.headers.get("Location")).toBe("/auth/login");
   });
@@ -83,7 +83,7 @@ describe("SSR pages", () => {
     const { cookie } = await cookieFor();
 
     const res = await app.request(
-      `/submit?fork=${source.slug}`,
+      `/zh/submit?fork=${source.slug}`,
       { headers: { Cookie: cookie } },
       env,
     );
@@ -108,7 +108,7 @@ describe("SSR pages", () => {
     const liked = await approvedStyle(otherOwner.id, { name: "Liked Style" });
     await likeStyle(env.DB, user.id, liked.id);
 
-    const res = await app.request("/me", { headers: { Cookie: cookie } }, env);
+    const res = await app.request("/zh/me", { headers: { Cookie: cookie } }, env);
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("Mine Pending");
@@ -119,7 +119,7 @@ describe("SSR pages", () => {
 
   it("protects /admin and renders pending review cards for admins", async () => {
     const plain = await cookieFor("plain@test.dev");
-    const forbidden = await app.request("/admin", { headers: { Cookie: plain.cookie } }, env);
+    const forbidden = await app.request("/zh/admin", { headers: { Cookie: plain.cookie } }, env);
     expect(forbidden.status).toBe(403);
 
     const owner = await makeUser();
@@ -132,7 +132,7 @@ describe("SSR pages", () => {
       status: "pending",
     });
     const admin = await cookieFor("admin@test.dev");
-    const res = await app.request("/admin", { headers: { Cookie: admin.cookie } }, env);
+    const res = await app.request("/zh/admin", { headers: { Cookie: admin.cookie } }, env);
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("Admin Pending");

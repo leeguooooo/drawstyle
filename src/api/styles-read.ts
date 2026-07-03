@@ -12,15 +12,23 @@ import {
 } from "../db";
 
 export const CATEGORIES = [
-  { key: "report", label_zh: "领导汇报" },
-  { key: "slides", label_zh: "专业PPT" },
-  { key: "tech-explainer", label_zh: "技术图解" },
-  { key: "social-cover", label_zh: "社交媒体封面" },
-  { key: "avatar-ip", label_zh: "头像/IP形象" },
-  { key: "cute", label_zh: "可爱治愈" },
-  { key: "retro-comic", label_zh: "复古漫画" },
-  { key: "photo-real", label_zh: "写实摄影" },
+  { key: "report", label_zh: "领导汇报", label_en: "Executive Report" },
+  { key: "slides", label_zh: "专业PPT", label_en: "Professional Slides" },
+  { key: "tech-explainer", label_zh: "技术图解", label_en: "Tech Explainer" },
+  { key: "social-cover", label_zh: "社交媒体封面", label_en: "Social Cover" },
+  { key: "avatar-ip", label_zh: "头像/IP形象", label_en: "Avatar / IP" },
+  { key: "cute", label_zh: "可爱治愈", label_en: "Cute & Cozy" },
+  { key: "retro-comic", label_zh: "复古漫画", label_en: "Retro Comic" },
+  { key: "photo-real", label_zh: "写实摄影", label_en: "Photorealistic" },
 ] as const;
+
+export function categoryLabel(key: string, locale: "zh" | "en"): string {
+  const cat = CATEGORIES.find((c) => c.key === key);
+  if (!cat) {
+    return key;
+  }
+  return locale === "en" ? cat.label_en : cat.label_zh;
+}
 
 const VALID_SORTS = new Set(["likes", "new", "pulls"]);
 

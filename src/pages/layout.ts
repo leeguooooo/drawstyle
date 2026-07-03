@@ -1,4 +1,6 @@
 import type { UserRow } from "../db";
+import { htmlLang, swapLocale, t, type Locale } from "../i18n";
+import { buildHead } from "./head";
 
 export function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -8,13 +10,31 @@ export function escapeHtml(value: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
-export function page(title: string, body: string, user?: UserRow): string {
+export interface PageOptions {
+  locale: Locale;
+  // Localized path of this page (begins with /zh or /en); drives canonical,
+  // hreflang and the language switcher.
+  path: string;
+  title: string;
+  description: string;
+  body: string;
+  user?: UserRow;
+  ogImage?: string;
+  jsonLd?: unknown[];
+}
+
+export function page(opts: PageOptions): string {
+  const { locale, path, title, description, body, user, ogImage, jsonLd } = opts;
+  const d = t(locale);
+  const other: Locale = locale === "zh" ? "en" : "zh";
+  const switchHref = `/lang/${other}?to=${encodeURIComponent(swapLocale(path, other))}`;
+  const home = `/${locale}/`;
   return `<!doctype html>
-<html lang="zh-CN">
+<html lang="${htmlLang(locale)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(title)} · drawstyle</title>
+  ${buildHead({ locale, path, title, description, ogImage, jsonLd })}
   <style>
     :root { --fg:#17202a; --muted:#667085; --bg:#f7f8fa; --panel:#ffffff; --border:#d9dee7; --accent:#2563eb; --danger:#b42318; }
     @media (prefers-color-scheme: dark) { :root { --fg:#edf2f7; --muted:#aab4c2; --bg:#111418; --panel:#181d24; --border:#303846; --accent:#6ea8ff; --danger:#ff8a80; } }
@@ -46,12 +66,13 @@ export function page(title: string, body: string, user?: UserRow): string {
 <body>
   <header>
     <nav>
-      <a href="/">drawstyle</a>
+      <a href="${home}">${escapeHtml(d.brand)}</a>
       <div class="links">
-        <a href="/submit">投稿</a>
-        <a href="/me">我的</a>
-        <a href="/admin">审核</a>
-        ${user ? `<span class="muted">${escapeHtml(user.display_name)}</span><a href="/auth/logout">退出</a>` : `<a href="/auth/login">登录</a>`}
+        <a href="/${locale}/submit">${escapeHtml(d.navSubmit)}</a>
+        <a href="/${locale}/me">${escapeHtml(d.navMe)}</a>
+        <a href="/${locale}/admin">${escapeHtml(d.navAdmin)}</a>
+        <a href="${switchHref}">${escapeHtml(d.langSwitch)}</a>
+        ${user ? `<span class="muted">${escapeHtml(user.display_name)}</span><a href="/auth/logout">${escapeHtml(d.navLogout)}</a>` : `<a href="/auth/login">${escapeHtml(d.navLogin)}</a>`}
       </div>
     </nav>
   </header>
