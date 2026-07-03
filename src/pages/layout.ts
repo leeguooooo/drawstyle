@@ -46,8 +46,8 @@ export function page(opts: PageOptions): string {
       /* --accent is the brand red for FILLS + large display text; --accent-text
          is a darkened red that passes WCAG AA for normal-size text on paper. */
       --accent:#ff5447; --accent-text:#d0372b; --accent-2:#3462d8; --ok:#36a85b; --danger:#c4321f;
-      --muted:#6f6d62; --muted-strong:#57564d;
-      --paper-tint:#f6f4e8; --shadow:rgba(26,26,26,.12);
+      --muted:#6f6d62;
+      --paper-tint:#f6f4e8; --shadow:rgba(26,26,26,.12); --card-pad:16px;
       --font-body:'Noto Sans SC',-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
       --font-display:'ZCOOL KuaiLe',"PingFang SC","Microsoft YaHei",cursive,sans-serif;
       --font-marker:'Permanent Marker','ZCOOL KuaiLe',"PingFang SC",cursive,sans-serif;
@@ -58,7 +58,7 @@ export function page(opts: PageOptions): string {
       :root {
         --paper:#161512; --ink:#f0eee6; --panel:#211f1a;
         --accent:#ff6a5e; --accent-text:#ff6a5e; --accent-2:#7b9ff0; --ok:#4cc177; --danger:#d0402e;
-        --muted:#a09d90; --muted-strong:#c5c2b5;
+        --muted:#a09d90;
         --paper-tint:#1c1a16; --shadow:rgba(0,0,0,.45);
       }
     }
@@ -78,14 +78,15 @@ export function page(opts: PageOptions): string {
     .eyebrow { font-family:var(--font-marker); color:var(--accent-text); font-size:14px; letter-spacing:1px; text-transform:uppercase; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
     .dot { display:inline-block; width:10px; height:10px; background:var(--ok); border-radius:55% 45% 60% 40%; filter:url(#rough); }
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:18px; }
-    .card { border:2px solid var(--ink); background:var(--panel); border-radius:14px 12px 15px 13px / 12px 15px 12px 14px; padding:16px; box-shadow:3px 3px 0 var(--shadow); overflow:hidden; }
+    .card { border:2px solid var(--ink); background:var(--panel); border-radius:14px 12px 15px 13px / 12px 15px 12px 14px; padding:var(--card-pad); box-shadow:3px 3px 0 var(--shadow); overflow:hidden; }
     .card:hover { box-shadow:4px 4px 0 var(--shadow); }
     .card h2 { margin:10px 0 8px; font-size:20px; }
     .card h2 a { color:var(--ink); text-decoration:none; }
     .card h2 a:hover { text-decoration:underline wavy var(--accent); text-underline-offset:4px; }
     .card p { margin:6px 0; }
     .card pre { font-size:12px; margin:10px 0 0; }
-    .card-img { display:block; width:calc(100% + 32px); max-width:none; margin:-16px -16px 4px; border:0; border-bottom:2px solid var(--ink); border-radius:12px 11px 0 0 / 11px 13px 0 0; aspect-ratio:4/3; object-fit:cover; background:var(--paper-tint); }
+    /* Full-bleed to the card edges; .card's overflow:hidden clips the top corners. */
+    .card-img { display:block; width:calc(100% + 2*var(--card-pad)); max-width:none; margin:calc(-1*var(--card-pad)) calc(-1*var(--card-pad)) 4px; border:0; border-bottom:2px solid var(--ink); border-radius:0; aspect-ratio:4/3; object-fit:cover; background:var(--paper-tint); }
     .muted { color:var(--muted); }
     .badge { display:inline-block; font-family:var(--font-marker); font-size:12px; letter-spacing:.5px; border:2px solid var(--ink); border-radius:10px 12px 11px 13px / 13px 10px 12px 11px; padding:1px 9px; color:var(--ink); background:var(--panel); text-decoration:none; }
     a.badge:hover { color:var(--accent-text); border-color:var(--accent); text-decoration:none; }
@@ -96,10 +97,14 @@ export function page(opts: PageOptions): string {
     input, textarea, select { width:100%; font-family:var(--font-body); font-size:15px; border:2px solid var(--ink); border-radius:11px 13px 12px 14px / 13px 11px 14px 12px; padding:9px 12px; background:var(--panel); color:var(--ink); }
     input:focus, textarea:focus, select:focus { border-color:var(--accent-2); outline:none; box-shadow:2px 2px 0 var(--shadow); }
     textarea { min-height:120px; }
+    /* color deliberately NOT var(--ink): the red --accent fill stays warm in both themes,
+       so the dark text is locked to keep AA contrast on it. Don't tokenize. */
     button, .button { display:inline-flex; align-items:center; justify-content:center; gap:6px; font-family:var(--font-body); font-size:15px; font-weight:700; border:2px solid var(--ink); color:#1a1a1a; background:var(--accent); border-radius:12px 14px 12px 15px / 14px 12px 15px 12px; padding:8px 16px; cursor:pointer; text-decoration:none; box-shadow:2px 2px 0 var(--shadow); }
     button:active, .button:active { transform:translate(2px,2px); box-shadow:none; }
     button.secondary, .button.secondary { color:var(--ink); background:var(--panel); }
     button.secondary:hover, .button.secondary:hover { background:var(--paper-tint); }
+    /* #fff deliberately NOT var(--ink): --danger stays a deep red in both themes,
+       so white text is locked to keep AA contrast on it. Don't tokenize. */
     button.danger { background:var(--danger); border-color:var(--ink); color:#fff; }
     a:focus-visible, button:focus-visible, .button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline:3px solid var(--accent-2); outline-offset:2px; }
     form { margin:0; }
