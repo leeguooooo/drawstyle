@@ -273,6 +273,35 @@ export async function getStyleBySlug(
   return row ?? null;
 }
 
+export async function getStyleById(
+  db: D1Database,
+  id: number,
+): Promise<StyleRow | null> {
+  const row = await db
+    .prepare(
+      `SELECT id, slug, name, owner_user_id, kind, snippet, category, status, version,
+              review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at
+       FROM drawstyle_styles
+       WHERE id = ?`,
+    )
+    .bind(id)
+    .first<StyleRow>();
+  return row ?? null;
+}
+
+export async function listPendingReviewStyles(db: D1Database): Promise<StyleRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT id, slug, name, owner_user_id, kind, snippet, category, status, version,
+              review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at
+       FROM drawstyle_styles
+       WHERE status = 'pending' OR pending_revision IS NOT NULL
+       ORDER BY updated_at ASC, created_at ASC`,
+    )
+    .all<StyleRow>();
+  return result.results;
+}
+
 export interface ListApprovedStylesOptions {
   q?: string;
   category?: string;
@@ -488,6 +517,143 @@ export async function deleteImagesByIds(
         .bind(id),
     ),
   );
+}
+
+export async function setImagesPending(
+  db: D1Database,
+  imageIds: number[],
+  pending: number,
+): Promise<void> {
+  if (imageIds.length === 0) {
+    return;
+  }
+  await db.batch(
+    imageIds.map((id) =>
+      db
+        .prepare(
+          `UPDATE drawstyle_style_images
+           SET pending = ?
+           WHERE id = ?`,
+        )
+        .bind(pending, id),
+    ),
+  );
+}
+
+export async function approveNewStyle(
+  db: D1Database,
+  styleId: number,
+): Promise<StyleRow> {
+  const row = await db
+    .prepare(
+      `UPDATE drawstyle_styles
+       SET status = 'approved',
+           review_note = NULL,
+           updated_at = ?
+       WHERE id = ?
+       RETURNING id, slug, name, owner_user_id, kind, snippet, category, status, version,
+                 review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at`,
+    )
+    .bind(new Date().toISOString(), styleId)
+    .first<StyleRow>();
+  if (!row) {
+    throw new Error("approveNewStyle: UPDATE ... RETURNING produced no row");
+  }
+  return row;
+}
+
+export async function rejectNewStyle(
+  db: D1Database,
+  styleId: number,
+  note: string,
+): Promise<StyleRow> {
+  const row = await db
+    .prepare(
+      `UPDATE drawstyle_styles
+       SET status = 'rejected',
+           review_note = ?,
+           updated_at = ?
+       WHERE id = ?
+       RETURNING id, slug, name, owner_user_id, kind, snippet, category, status, version,
+                 review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at`,
+    )
+    .bind(note, new Date().toISOString(), styleId)
+    .first<StyleRow>();
+  if (!row) {
+    throw new Error("rejectNewStyle: UPDATE ... RETURNING produced no row");
+  }
+  return row;
+}
+
+export async function approveStyleRevision(
+  db: D1Database,
+  styleId: number,
+  input: { name: string; snippet: string; category: string },
+): Promise<StyleRow> {
+  const row = await db
+    .prepare(
+      `UPDATE drawstyle_styles
+       SET name = ?,
+           snippet = ?,
+           category = ?,
+           version = version + 1,
+           pending_revision = NULL,
+           review_note = NULL,
+           updated_at = ?
+       WHERE id = ?
+       RETURNING id, slug, name, owner_user_id, kind, snippet, category, status, version,
+                 review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at`,
+    )
+    .bind(input.name, input.snippet, input.category, new Date().toISOString(), styleId)
+    .first<StyleRow>();
+  if (!row) {
+    throw new Error("approveStyleRevision: UPDATE ... RETURNING produced no row");
+  }
+  return row;
+}
+
+export async function rejectStyleRevision(
+  db: D1Database,
+  styleId: number,
+  note: string,
+): Promise<StyleRow> {
+  const row = await db
+    .prepare(
+      `UPDATE drawstyle_styles
+       SET pending_revision = NULL,
+           review_note = ?,
+           updated_at = ?
+       WHERE id = ?
+       RETURNING id, slug, name, owner_user_id, kind, snippet, category, status, version,
+                 review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at`,
+    )
+    .bind(note, new Date().toISOString(), styleId)
+    .first<StyleRow>();
+  if (!row) {
+    throw new Error("rejectStyleRevision: UPDATE ... RETURNING produced no row");
+  }
+  return row;
+}
+
+export async function delistStyle(
+  db: D1Database,
+  styleId: number,
+): Promise<StyleRow> {
+  const row = await db
+    .prepare(
+      `UPDATE drawstyle_styles
+       SET status = 'delisted',
+           updated_at = ?
+       WHERE id = ?
+       RETURNING id, slug, name, owner_user_id, kind, snippet, category, status, version,
+                 review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at`,
+    )
+    .bind(new Date().toISOString(), styleId)
+    .first<StyleRow>();
+  if (!row) {
+    throw new Error("delistStyle: UPDATE ... RETURNING produced no row");
+  }
+  return row;
 }
 
 export async function incrementPullsCount(
