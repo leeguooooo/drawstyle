@@ -47,7 +47,7 @@ function extractJsonLd(html: string): Array<Record<string, unknown>> {
 }
 
 describe("locale routing", () => {
-  it("302s / to /en/ for English Accept-Language", async () => {
+  it("302s / to /en/ for English Accept-Language, with Vary", async () => {
     const res = await app.request(
       "/",
       { headers: { "Accept-Language": "en-US,en;q=0.9" } },
@@ -55,6 +55,7 @@ describe("locale routing", () => {
     );
     expect(res.status).toBe(302);
     expect(res.headers.get("Location")).toBe("/en/");
+    expect(res.headers.get("Vary")).toBe("Accept-Language, Cookie");
   });
 
   it("302s / to /zh/ for Chinese Accept-Language", async () => {
@@ -88,20 +89,22 @@ describe("locale routing", () => {
     expect(res.headers.get("Location")).toBe("/en/");
   });
 
-  it("301s old unprefixed URLs to the locale-prefixed equivalent", async () => {
+  it("301s old unprefixed URLs to /zh deterministically, ignoring language signals", async () => {
     const { style } = await approvedStyle();
 
     const detail = await app.request(`/s/${style.slug}`, {}, env);
     expect(detail.status).toBe(301);
     expect(detail.headers.get("Location")).toBe(`/zh/s/${style.slug}`);
 
+    // 301s are cached per-URL forever, so the target must NOT depend on the
+    // visitor's Accept-Language or lang cookie — always /zh (x-default).
     const detailEn = await app.request(
       `/s/${style.slug}`,
-      { headers: { "Accept-Language": "en-US" } },
+      { headers: { "Accept-Language": "en-US", Cookie: "lang=en" } },
       env,
     );
     expect(detailEn.status).toBe(301);
-    expect(detailEn.headers.get("Location")).toBe(`/en/s/${style.slug}`);
+    expect(detailEn.headers.get("Location")).toBe(`/zh/s/${style.slug}`);
 
     const submit = await app.request("/submit?fork=abc", {}, env);
     expect(submit.status).toBe(301);
@@ -195,6 +198,39 @@ describe("SEO head", () => {
     expect((detail?.author as Record<string, unknown>).name).toBe("Seed Author");
     expect(detail?.url).toBe(`https://drawstyle.leeguoo.com/en/s/${style.slug}`);
     expect(detail?.contentUrl).toBe(imageUrl);
+  });
+
+  it("keeps JSON-LD parseable when user content contains </script>", async () => {
+    const nastyName = 'x"</script><script>alert(1)</script>';
+    const nastySnippet = 'evil </script> snippet with "quotes"';
+    const { style } = await approvedStyle({
+      name: nastyName,
+      snippet: nastySnippet,
+    });
+
+    const res = await app.request(`/zh/s/${style.slug}`, {}, env);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+
+    const rawBlocks = [
+      ...html.matchAll(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+      ),
+    ].map((match) => match[1]);
+    expect(rawBlocks.length).toBeGreaterThanOrEqual(2);
+    for (const block of rawBlocks) {
+      // A raw </script> inside the block would end the script element early
+      // and dump the payload into the page.
+      expect(block).not.toContain("</script>");
+      expect(() => JSON.parse(block)).not.toThrow();
+    }
+
+    const detail = rawBlocks
+      .map((block) => JSON.parse(block) as Record<string, unknown>)
+      .find((node) => node["@type"] === "ImageObject");
+    expect(detail).toBeDefined();
+    expect(detail?.name).toBe(nastyName);
+    expect(detail?.description).toBe(nastySnippet);
   });
 
   it("uses a summary twitter card and no og:image on pages without one", async () => {

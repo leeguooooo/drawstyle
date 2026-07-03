@@ -1,19 +1,17 @@
 // Unprefixed SEO/GEO endpoints: sitemap.xml, robots.txt, llms.txt.
 
 import { Hono } from "hono";
+import { SITE_URL } from "./config";
 import { listApprovedSlugsForSitemap } from "./db";
 import { LOCALES } from "./i18n";
-import { SITE_URL } from "./pages/head";
+import { escapeHtml } from "./pages/layout";
 
 export const seoRoutes = new Hono<{ Bindings: Env }>();
 
+// XML needs the HTML escape set plus single quotes (attribute values may be
+// single-quoted in XML); extend the shared helper instead of re-implementing.
 function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+  return escapeHtml(value).replace(/'/g, "&apos;");
 }
 
 // One <url> entry with hreflang alternates for both locales + x-default.

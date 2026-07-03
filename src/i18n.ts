@@ -1,3 +1,5 @@
+import type { StyleStatus } from "./db";
+
 // Auto internationalization for drawstyle's SSR pages.
 //
 // URL scheme: every HTML page lives under a locale prefix (/zh/ or /en/).
@@ -5,23 +7,31 @@
 // User-generated content (style names, snippets, tags) is NEVER translated —
 // only the surrounding UI chrome (nav, buttons, labels, headings, meta copy).
 
-export type Locale = "zh" | "en";
-
-export const LOCALES: readonly Locale[] = ["zh", "en"] as const;
+// Adding a locale (e.g. "ja")? Touch ALL of these, in this file:
+//   1. LOCALES below (drives isLocale, swapLocale and route registration),
+//   2. the HTML_LANG / OG_LOCALE / DICTS maps (Record<Locale, …> makes tsc
+//      flag any that were missed),
+//   3. localeFromAcceptLanguage's preference branches.
+export const LOCALES = ["zh", "en"] as const;
+export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "zh";
 
+const LOCALE_PREFIX_RE = new RegExp(`^/(${LOCALES.join("|")})(/.*|$)`);
+
 export function isLocale(value: string | undefined): value is Locale {
-  return value === "zh" || value === "en";
+  return (LOCALES as readonly string[]).includes(value ?? "");
 }
 
 // <html lang> value per locale.
+const HTML_LANG: Record<Locale, string> = { zh: "zh-CN", en: "en" };
 export function htmlLang(locale: Locale): string {
-  return locale === "en" ? "en" : "zh-CN";
+  return HTML_LANG[locale];
 }
 
 // og:locale value per locale.
+const OG_LOCALE: Record<Locale, string> = { zh: "zh_CN", en: "en_US" };
 export function ogLocale(locale: Locale): string {
-  return locale === "en" ? "en_US" : "zh_CN";
+  return OG_LOCALE[locale];
 }
 
 // Pick a locale from an Accept-Language header: whichever of an en* / zh*
@@ -56,21 +66,11 @@ export function pickLocale(
 // Replace the locale segment of a localized path (/zh/... -> /en/...). Given a
 // non-prefixed path it prepends the locale.
 export function swapLocale(path: string, locale: Locale): string {
-  const match = path.match(/^\/(zh|en)(\/.*|$)/);
+  const match = path.match(LOCALE_PREFIX_RE);
   if (match) {
     return `/${locale}${match[2] || "/"}`;
   }
   return `/${locale}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
-// Strip the leading /zh or /en, returning the locale-independent remainder
-// (always begins with "/"). "/en/s/foo" -> "/s/foo"; "/zh/" -> "/".
-export function stripLocale(path: string): string {
-  const match = path.match(/^\/(zh|en)(\/.*|$)/);
-  if (match) {
-    return match[2] || "/";
-  }
-  return path.startsWith("/") ? path : `/${path}`;
 }
 
 export interface Dict {
@@ -121,6 +121,8 @@ export interface Dict {
   adminReject: string;
   badgeRevision: string;
   badgeNew: string;
+
+  statusLabels: Record<StyleStatus, string>;
 }
 
 const zh: Dict = {
@@ -173,6 +175,13 @@ const zh: Dict = {
   adminReject: "驳回",
   badgeRevision: "改稿",
   badgeNew: "新投稿",
+
+  statusLabels: {
+    pending: "待审核",
+    approved: "已上架",
+    rejected: "已驳回",
+    delisted: "已下架",
+  },
 };
 
 const en: Dict = {
@@ -225,8 +234,21 @@ const en: Dict = {
   adminReject: "Reject",
   badgeRevision: "revision",
   badgeNew: "new",
+
+  statusLabels: {
+    pending: "Pending review",
+    approved: "Approved",
+    rejected: "Rejected",
+    delisted: "Delisted",
+  },
 };
 
+const DICTS: Record<Locale, Dict> = { zh, en };
+
 export function t(locale: Locale): Dict {
-  return locale === "en" ? en : zh;
+  return DICTS[locale];
+}
+
+export function statusLabel(status: StyleStatus, locale: Locale): string {
+  return t(locale).statusLabels[status] ?? status;
 }

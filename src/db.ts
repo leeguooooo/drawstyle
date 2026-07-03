@@ -789,6 +789,8 @@ export interface SitemapEntry {
 }
 
 // All approved styles for sitemap.xml — slug + lastmod only, no pagination.
+// TODO: paginate into a sitemap index past ~20k styles (50k-URL/50MB
+// sitemaps.org cap; each style = 2 URLs).
 export async function listApprovedSlugsForSitemap(
   db: D1Database,
 ): Promise<SitemapEntry[]> {

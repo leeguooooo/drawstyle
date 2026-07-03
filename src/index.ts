@@ -5,7 +5,7 @@ import { stylesReadRoutes } from "./api/styles-read";
 import { stylesWriteRoutes } from "./api/styles-write";
 import { authOptional, isAdminEmail, type AuthVariables } from "./auth";
 import { imageProxy } from "./images";
-import { isLocale, LOCALES, pickLocale, type Locale } from "./i18n";
+import { DEFAULT_LOCALE, isLocale, LOCALES, pickLocale, type Locale } from "./i18n";
 import { oidcRoutes } from "./oidc";
 import { adminPage } from "./pages/admin";
 import { detailPage } from "./pages/detail";
@@ -45,19 +45,20 @@ function getCookieValue(header: string | undefined, name: string): string | unde
   return undefined;
 }
 
-// Redirect an unprefixed HTML path to its localized equivalent, preserving the
-// query string. 301 for content URLs (search engines should transfer rank);
-// the root `/` uses 302 because its target varies per visitor.
-function localeRedirect(
+// Permanently redirect an old unprefixed content URL to its /zh (x-default)
+// equivalent, preserving the query string. Deliberately DETERMINISTIC — never
+// vary on cookie or Accept-Language: 301s are cached per-URL (browsers cache
+// them indefinitely, Googlebot binds the target permanently), so a per-visitor
+// target would freeze one visitor's locale into everyone's cache. hreflang on
+// the /zh page routes users to /en where appropriate.
+function legacyRedirect(
   c: LocaleRequestContext & {
     redirect: (url: string, status?: 301 | 302) => Response;
   },
   pathAfterLocale: string,
-  status: 301 | 302,
 ): Response {
-  const locale = requestLocale(c);
   const search = new URL(c.req.raw.url).search;
-  return c.redirect(`/${locale}${pathAfterLocale}${search}`, status);
+  return c.redirect(`/${DEFAULT_LOCALE}${pathAfterLocale}${search}`, 301);
 }
 
 // --- infrastructure (unprefixed) ---
@@ -86,14 +87,22 @@ app.get("/lang/:locale", (c) => {
   return c.redirect(target, 302);
 });
 
-// --- root + legacy unprefixed page URLs redirect into a locale ---
-app.get("/", (c) => localeRedirect(c, "/", 302));
+// --- root: per-visitor locale pick, 302 (never cached as permanent) ---
+app.get("/", (c) => {
+  const locale = requestLocale(c);
+  // Defensive: the target depends on the cookie and Accept-Language, so any
+  // intermediary cache must key on both.
+  c.header("Vary", "Accept-Language, Cookie");
+  return c.redirect(`/${locale}/`, 302);
+});
+
+// --- legacy unprefixed page URLs: fixed 301 to /zh (see legacyRedirect) ---
 app.get("/s/:slug", (c) =>
-  localeRedirect(c, `/s/${encodeURIComponent(c.req.param("slug"))}`, 301),
+  legacyRedirect(c, `/s/${encodeURIComponent(c.req.param("slug"))}`),
 );
-app.get("/submit", (c) => localeRedirect(c, "/submit", 301));
-app.get("/me", (c) => localeRedirect(c, "/me", 301));
-app.get("/admin", (c) => localeRedirect(c, "/admin", 301));
+app.get("/submit", (c) => legacyRedirect(c, "/submit"));
+app.get("/me", (c) => legacyRedirect(c, "/me"));
+app.get("/admin", (c) => legacyRedirect(c, "/admin"));
 
 // --- localized HTML pages ---
 // Registered as literal /zh/... and /en/... routes (no regex params: Hono's

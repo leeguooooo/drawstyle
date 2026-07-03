@@ -6,8 +6,9 @@ import {
   getUserById,
   type UserRow,
 } from "../db";
+import { SITE_URL } from "../config";
 import { t, type Locale } from "../i18n";
-import { SITE_URL, styleLdNode } from "./head";
+import { styleLdNode } from "./head";
 import { escapeHtml, page } from "./layout";
 
 function absImage(r2Key: string): string {

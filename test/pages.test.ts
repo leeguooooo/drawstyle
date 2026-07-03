@@ -113,7 +113,7 @@ describe("SSR pages", () => {
     const html = await res.text();
     expect(html).toContain("Mine Pending");
     expect(html).toContain(mine.slug);
-    expect(html).toContain("pending");
+    expect(html).toContain("待审核");
     expect(html).toContain("Liked Style");
   });
 

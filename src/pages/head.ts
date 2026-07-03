@@ -3,10 +3,10 @@
 // card and JSON-LD. Mirrors the conventions used on blog.leeguoo.com so the
 // whole leeguoo family shares one entity graph (Organization / Person @ids).
 
+import { SITE_URL } from "../config";
 import { htmlLang, ogLocale, swapLocale, type Locale } from "../i18n";
 import { escapeHtml } from "./layout";
 
-export const SITE_URL = "https://drawstyle.leeguoo.com";
 export const SITE_NAME = "drawstyle";
 export const TWITTER_HANDLE = "@leeguooooo";
 
