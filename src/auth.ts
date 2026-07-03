@@ -362,6 +362,10 @@ function adminEmails(env: Env): Set<string> {
   );
 }
 
+export function isAdminEmail(email: string, env: Env): boolean {
+  return adminEmails(env).has(email.toLowerCase());
+}
+
 export const requireAdmin: MiddlewareHandler<{
   Bindings: Env;
   Variables: AuthVariables;
@@ -373,7 +377,7 @@ export const requireAdmin: MiddlewareHandler<{
     }
     c.set("user", resolved.user);
     c.set("authSource", resolved.source);
-    if (!adminEmails(c.env).has(resolved.user.email.toLowerCase())) {
+    if (!isAdminEmail(resolved.user.email, c.env)) {
       return forbidden(c);
     }
   } catch (error) {

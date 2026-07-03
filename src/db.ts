@@ -46,6 +46,11 @@ export interface ImageRow {
   sort: number;
 }
 
+export interface ImageAccessRow extends ImageRow {
+  style_status: StyleStatus;
+  owner_user_id: number;
+}
+
 export interface CreateUserInput {
   oidc_sub: string;
   email: string;
@@ -181,6 +186,25 @@ export async function addImage(
     throw new Error("addImage: INSERT ... RETURNING produced no row");
   }
   return row;
+}
+
+export async function getImagesByKey(
+  db: D1Database,
+  r2_key: string,
+): Promise<ImageAccessRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT
+         style_images.id, style_images.style_id, style_images.r2_key,
+         style_images.role, style_images.content_type, style_images.pending, style_images.sort,
+         styles.status AS style_status, styles.owner_user_id
+       FROM style_images
+       JOIN styles ON styles.id = style_images.style_id
+       WHERE style_images.r2_key = ?`,
+    )
+    .bind(r2_key)
+    .all<ImageAccessRow>();
+  return result.results;
 }
 
 export async function getStyleBySlug(
