@@ -10,7 +10,7 @@ import {
   getTagsForStyle,
 } from "../src/db";
 import app from "../src/index";
-import { MAX_IMAGE_BYTES } from "../src/images";
+import { MAX_IMAGE_BYTES, putImage } from "../src/images";
 import { makeUser } from "./helpers";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
@@ -499,6 +499,150 @@ describe("styles write API", () => {
     expect(stagedAfter).toHaveLength(1);
     expect(stagedAfter[0].r2_key).toBe(key);
     expect(await env.ASSETS.get(key)).not.toBeNull();
+  });
+
+  it("keeps existing tags and refs when a pending edit omits those fields", async () => {
+    const { user, cookie } = await sessionCookie();
+    const style = await createStyle(env.DB, {
+      slug: uniq("text-only"),
+      name: "Text Only",
+      owner_user_id: user.id,
+      kind: "style",
+      category: "report",
+      status: "pending",
+      snippet: "old",
+    });
+    await addTags(env.DB, style.id, ["keep"]);
+    const bytes = new Uint8Array([
+      ...PNG,
+      ...new TextEncoder().encode(crypto.randomUUID()),
+    ]);
+    const stored = await putImage(env.ASSETS, bytes);
+    const ref = await addImage(env.DB, {
+      style_id: style.id,
+      r2_key: stored.r2_key,
+      role: "reference",
+      content_type: stored.content_type,
+    });
+
+    const form = new FormData();
+    form.set("name", "Text Only Edited");
+    form.set("snippet", "new snippet");
+    form.set("category", "report");
+    const res = await requestWithSession(
+      `/api/styles/${style.slug}`,
+      "PUT",
+      cookie,
+      form,
+    );
+    expect(res.status).toBe(200);
+
+    const fetched = await getStyleBySlug(env.DB, style.slug);
+    expect(fetched?.snippet).toBe("new snippet");
+    expect(await getTagsForStyle(env.DB, style.id)).toEqual(["keep"]);
+    const refs = await getImagesForStyle(env.DB, style.id, { role: "reference" });
+    expect(refs.map((image) => image.id)).toEqual([ref.id]);
+    expect(await env.ASSETS.get(stored.r2_key)).not.toBeNull();
+  });
+
+  it("marks omitted tags and refs as unchanged in an approved pending revision", async () => {
+    const { user, cookie } = await sessionCookie();
+    const style = await createStyle(env.DB, {
+      slug: uniq("revision-null"),
+      name: "Live",
+      owner_user_id: user.id,
+      kind: "style",
+      category: "report",
+      status: "approved",
+    });
+
+    const form = new FormData();
+    form.set("name", "Live Edited");
+    form.set("snippet", "revised");
+    form.set("category", "report");
+    const res = await requestWithSession(
+      `/api/styles/${style.slug}`,
+      "PUT",
+      cookie,
+      form,
+    );
+    expect(res.status).toBe(200);
+
+    const fetched = await getStyleBySlug(env.DB, style.slug);
+    const revision = JSON.parse(fetched?.pending_revision ?? "{}") as {
+      tags: string[] | null;
+      ref_image_ids: number[] | null;
+    };
+    expect(revision.tags).toBeNull();
+    expect(revision.ref_image_ids).toBeNull();
+  });
+
+  it("replaces existing refs on resubmit so total refs stay capped at 4", async () => {
+    const { user, cookie } = await sessionCookie();
+    const style = await createStyle(env.DB, {
+      slug: uniq("refs-cap"),
+      name: "Refs Cap",
+      owner_user_id: user.id,
+      kind: "style",
+      category: "report",
+      status: "pending",
+    });
+    const uniquePng = () =>
+      new Uint8Array([...PNG, ...new TextEncoder().encode(crypto.randomUUID())]);
+
+    const first = editForm();
+    for (let i = 0; i < 3; i += 1) {
+      first.append("ref[]", imageFile(`a-${i}.png`, uniquePng()));
+    }
+    expect(
+      (await requestWithSession(`/api/styles/${style.slug}`, "PUT", cookie, first))
+        .status,
+    ).toBe(200);
+    expect(
+      await getImagesForStyle(env.DB, style.id, { role: "reference" }),
+    ).toHaveLength(3);
+
+    const second = editForm();
+    for (let i = 0; i < 2; i += 1) {
+      second.append("ref[]", imageFile(`b-${i}.png`, uniquePng()));
+    }
+    expect(
+      (await requestWithSession(`/api/styles/${style.slug}`, "PUT", cookie, second))
+        .status,
+    ).toBe(200);
+    expect(
+      await getImagesForStyle(env.DB, style.id, { role: "reference" }),
+    ).toHaveLength(2);
+  });
+
+  it("rejects over-cap name and tag counts with standard error JSON", async () => {
+    const { cookie } = await sessionCookie();
+
+    const longName = validForm(uniq("cap-name"));
+    longName.set("name", "n".repeat(121));
+    const nameRes = await postForm(longName, cookie);
+    expect(nameRes.status).toBe(400);
+    expect(((await nameRes.json()) as { error: { code: string } }).error.code).toBe(
+      "bad_name",
+    );
+
+    const manyTags = validForm(uniq("cap-tags"));
+    for (let i = 0; i < 11; i += 1) {
+      manyTags.append("tag", `tag-${i}`);
+    }
+    const tagsRes = await postForm(manyTags, cookie);
+    expect(tagsRes.status).toBe(400);
+    expect(((await tagsRes.json()) as { error: { code: string } }).error.code).toBe(
+      "bad_tags",
+    );
+
+    const longSnippet = validForm(uniq("cap-snippet"));
+    longSnippet.set("snippet", "s".repeat(4001));
+    const snippetRes = await postForm(longSnippet, cookie);
+    expect(snippetRes.status).toBe(400);
+    expect(
+      ((await snippetRes.json()) as { error: { code: string } }).error.code,
+    ).toBe("bad_snippet");
   });
 
   it("likes and unlikes approved styles idempotently", async () => {

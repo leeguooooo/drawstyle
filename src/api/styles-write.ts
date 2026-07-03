@@ -15,12 +15,14 @@ import {
   setPendingRevision,
   type ImageRole,
   type StyleKind,
+  type StyleRow,
   unlikeStyle,
   updateStyleFields,
 } from "../db";
 import {
   ImageValidationError,
   deleteImageRowsAndObjects,
+  deleteUnreferencedObjects,
   putImage,
 } from "../images";
 
@@ -29,6 +31,11 @@ const TAG_RE = /^[a-z0-9][a-z0-9_-]*$/;
 const CATEGORY_KEYS = new Set<string>(CATEGORIES.map((category) => category.key));
 const STYLE_KINDS = new Set(["style", "character"]);
 const DAILY_SUBMISSION_LIMIT = 10;
+const MAX_NAME_LENGTH = 120;
+const MAX_SNIPPET_LENGTH = 4000;
+const MAX_TAGS = 10;
+const MAX_TAG_LENGTH = 40;
+const MAX_REFS = 4;
 
 export const stylesWriteRoutes = new Hono<{
   Bindings: Env;
@@ -72,12 +79,51 @@ function normalizeTags(body: Record<string, unknown>): string[] {
     if (typeof value !== "string") {
       continue;
     }
-    const tag = value.trim().toLowerCase();
-    if (tag && TAG_RE.test(tag)) {
-      seen.add(tag);
+    // Each tag field may carry several tags separated by whitespace/commas,
+    // so the single web-form input can hold (and prefill) a full tag list.
+    for (const part of value.split(/[\s,]+/)) {
+      const tag = part.trim().toLowerCase();
+      if (tag && TAG_RE.test(tag)) {
+        seen.add(tag);
+      }
     }
   }
   return [...seen];
+}
+
+// Field caps shared by submit and edit. Tags over MAX_TAG_LENGTH still match
+// TAG_RE (its length is unbounded), so they reach this check instead of being
+// silently dropped.
+function textCapsError(
+  name: string,
+  snippet: string,
+  tags: string[],
+): Response | null {
+  if (name.length > MAX_NAME_LENGTH) {
+    return errorJson(
+      "bad_name",
+      `name must be at most ${MAX_NAME_LENGTH} characters`,
+      400,
+    );
+  }
+  if (snippet.length > MAX_SNIPPET_LENGTH) {
+    return errorJson(
+      "bad_snippet",
+      `snippet must be at most ${MAX_SNIPPET_LENGTH} characters`,
+      400,
+    );
+  }
+  if (tags.length > MAX_TAGS) {
+    return errorJson("bad_tags", `submit at most ${MAX_TAGS} tags`, 400);
+  }
+  if (tags.some((tag) => tag.length > MAX_TAG_LENGTH)) {
+    return errorJson(
+      "bad_tags",
+      `each tag must be at most ${MAX_TAG_LENGTH} characters`,
+      400,
+    );
+  }
+  return null;
 }
 
 function utcDayStartIso(now = new Date()): string {
@@ -156,10 +202,14 @@ stylesWriteRoutes.post("/styles", requireUser, async (c) => {
   if (!CATEGORY_KEYS.has(category)) {
     return errorJson("bad_category", "unknown category", 400);
   }
+  const capsError = textCapsError(name, snippet, tags);
+  if (capsError) {
+    return capsError;
+  }
   if (examples.length < 1 || examples.length > 3) {
     return errorJson("bad_examples", "submit 1 to 3 example images", 400);
   }
-  if (refs.length > 4) {
+  if (refs.length > MAX_REFS) {
     return errorJson("bad_refs", "submit at most 4 reference images", 400);
   }
   if (await getStyleBySlug(c.env.DB, slug)) {
@@ -200,16 +250,31 @@ stylesWriteRoutes.post("/styles", requireUser, async (c) => {
     throw error;
   }
 
-  const style = await createStyle(c.env.DB, {
-    slug,
-    name,
-    owner_user_id: c.var.user.id,
-    kind,
-    category,
-    status: "pending",
-    snippet,
-    forked_from: forkedFrom?.id ?? null,
-  });
+  let style: StyleRow;
+  try {
+    style = await createStyle(c.env.DB, {
+      slug,
+      name,
+      owner_user_id: c.var.user.id,
+      kind,
+      category,
+      status: "pending",
+      snippet,
+      forked_from: forkedFrom?.id ?? null,
+    });
+  } catch (error) {
+    // The slug pre-check above is racy against the UNIQUE constraint; if the
+    // insert loses, don't strand the objects uploaded a moment ago (skipping
+    // any key another style's rows still reference).
+    await deleteUnreferencedObjects(
+      c.env,
+      images.map((image) => image.r2_key),
+    );
+    if (error instanceof Error && /UNIQUE/i.test(error.message)) {
+      return errorJson("slug_taken", "slug is already taken", 400);
+    }
+    throw error;
+  }
   await addTags(c.env.DB, style.id, tags);
   for (const image of images) {
     await addImage(c.env.DB, {
@@ -251,14 +316,26 @@ stylesWriteRoutes.put("/styles/:slug", requireUser, async (c) => {
   }
 
   const edit = editPayload(body);
+  // Absent means unchanged: the web edit form can't re-attach binary refs the
+  // user never re-uploaded, so an edit that omits tag/ref[] must not wipe the
+  // live tags/refs when it is approved.
+  const tagsProvided = hasField(body, "tag");
   if (!edit.name) {
     return errorJson("bad_name", "name is required", 400);
   }
   if (!CATEGORY_KEYS.has(edit.category)) {
     return errorJson("bad_category", "unknown category", 400);
   }
-  if (edit.refs.length > 4) {
+  if (edit.refs.length > MAX_REFS) {
     return errorJson("bad_refs", "submit at most 4 reference images", 400);
+  }
+  const capsError = textCapsError(
+    edit.name,
+    edit.snippet,
+    tagsProvided ? edit.tags : [],
+  );
+  if (capsError) {
+    return capsError;
   }
 
   let refs: Array<{
@@ -281,17 +358,21 @@ stylesWriteRoutes.put("/styles/:slug", requireUser, async (c) => {
       role: "reference",
       pending: 1,
     });
-    const stagedIds: number[] = [];
-    for (const image of refs) {
-      const row = await addImage(c.env.DB, {
-        style_id: style.id,
-        r2_key: image.r2_key,
-        role: image.role,
-        content_type: image.content_type,
-        pending: 1,
-        sort: image.sort,
-      });
-      stagedIds.push(row.id);
+    // null = "keep the live refs" for the admin approve step.
+    let stagedIds: number[] | null = null;
+    if (refs.length > 0) {
+      stagedIds = [];
+      for (const image of refs) {
+        const row = await addImage(c.env.DB, {
+          style_id: style.id,
+          r2_key: image.r2_key,
+          role: image.role,
+          content_type: image.content_type,
+          pending: 1,
+          sort: image.sort,
+        });
+        stagedIds.push(row.id);
+      }
     }
     // Insert the new staged rows BEFORE deleting the superseded ones: R2 keys
     // are content-addressed, so re-uploading identical bytes reuses the key
@@ -304,7 +385,7 @@ stylesWriteRoutes.put("/styles/:slug", requireUser, async (c) => {
         name: edit.name,
         snippet: edit.snippet,
         category: edit.category,
-        tags: edit.tags,
+        tags: tagsProvided ? edit.tags : null,
         ref_image_ids: stagedIds,
       }),
     );
@@ -319,6 +400,12 @@ stylesWriteRoutes.put("/styles/:slug", requireUser, async (c) => {
   }
 
   if (style.status === "pending" || style.status === "rejected") {
+    // Snapshot the refs to replace BEFORE inserting the new ones, so a
+    // re-upload of identical bytes (same r2_key) isn't swept up in the delete.
+    const oldRefs =
+      refs.length > 0
+        ? await getImagesForStyle(c.env.DB, style.id, { role: "reference" })
+        : [];
     const updated = await updateStyleFields(c.env.DB, style.id, {
       name: edit.name,
       snippet: edit.snippet,
@@ -327,16 +414,23 @@ stylesWriteRoutes.put("/styles/:slug", requireUser, async (c) => {
       pending_revision: null,
       review_note: null,
     });
-    await replaceTags(c.env.DB, style.id, edit.tags);
-    for (const image of refs) {
-      await addImage(c.env.DB, {
-        style_id: style.id,
-        r2_key: image.r2_key,
-        role: image.role,
-        content_type: image.content_type,
-        pending: 0,
-        sort: image.sort,
-      });
+    if (tagsProvided) {
+      await replaceTags(c.env.DB, style.id, edit.tags);
+    }
+    if (refs.length > 0) {
+      for (const image of refs) {
+        await addImage(c.env.DB, {
+          style_id: style.id,
+          r2_key: image.r2_key,
+          role: image.role,
+          content_type: image.content_type,
+          pending: 0,
+          sort: image.sort,
+        });
+      }
+      // Replace, don't append: keeps the TOTAL ref count within MAX_REFS no
+      // matter how many times the submission is edited and resubmitted.
+      await deleteImageRowsAndObjects(c.env, oldRefs);
     }
     return c.json({
       style: {

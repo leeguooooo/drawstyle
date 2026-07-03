@@ -174,6 +174,39 @@ describe("admin API", () => {
     expect(liveRefs.map((image) => image.id)).toEqual([staged.id]);
   });
 
+  it("approving a text-only revision keeps live refs and tags", async () => {
+    const style = await makeStyleForReview("approved");
+    await addTags(env.DB, style.id, ["live"]);
+    const liveRef = await addRef(style.id, 0);
+    await setPendingRevision(
+      env.DB,
+      style.id,
+      JSON.stringify({
+        name: "Snippet Only",
+        snippet: "only the snippet changed",
+        category: "report",
+        tags: null,
+        ref_image_ids: null,
+      }),
+    );
+
+    const res = await adminRequest(`/api/admin/styles/${style.id}/approve`);
+    expect(res.status).toBe(200);
+
+    const fetched = await getStyleBySlug(env.DB, style.slug);
+    expect(fetched?.name).toBe("Snippet Only");
+    expect(fetched?.snippet).toBe("only the snippet changed");
+    expect(fetched?.version).toBe(2);
+    expect(fetched?.pending_revision).toBeNull();
+    expect(await getTagsForStyle(env.DB, style.id)).toEqual(["live"]);
+    const liveRefs = await getImagesForStyle(env.DB, style.id, {
+      role: "reference",
+      pending: 0,
+    });
+    expect(liveRefs.map((image) => image.id)).toEqual([liveRef.id]);
+    expect(await env.ASSETS.get(liveRef.r2_key)).not.toBeNull();
+  });
+
   it("keeps the R2 object when the approved revision re-uses the old ref bytes", async () => {
     const style = await makeStyleForReview("approved");
     const bytes = uniquePng();
@@ -237,6 +270,28 @@ describe("admin API", () => {
       role: "reference",
     });
     expect(survivors.map((image) => image.id)).toEqual([otherRef.id]);
+  });
+
+  it("skips a corrupt pending_revision blob instead of failing the whole queue", async () => {
+    const style = await makeStyleForReview("approved");
+    await setPendingRevision(env.DB, style.id, "{not valid json");
+
+    const res = await adminRequest("/api/admin/pending", "GET");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      items: Array<{ id: number; type: string; pending_revision: unknown }>;
+    };
+    const entry = body.items.find((item) => item.id === style.id);
+    expect(entry).toBeDefined();
+    expect(entry?.type).toBe("revision");
+    expect(entry?.pending_revision).toBeNull();
+  });
+
+  it("returns 404 for non-numeric style ids", async () => {
+    for (const action of ["approve", "reject", "delist"]) {
+      const res = await adminRequest(`/api/admin/styles/not-a-number/${action}`);
+      expect(res.status, action).toBe(404);
+    }
   });
 
   it("rejects a revision by discarding staged refs and keeping live content", async () => {

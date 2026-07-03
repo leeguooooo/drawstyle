@@ -54,36 +54,57 @@ function fileFrom(body: Record<string, unknown>, key: string): File | null {
   return value instanceof File && value.size > 0 ? value : null;
 }
 
+// tags / ref_image_ids may be null: revisions produced by an edit that never
+// touched those fields store null, meaning "leave the live value unchanged".
+// Returns null (never throws) on a corrupt blob so one bad row can't 500 the
+// whole review queue.
 function parseRevision(raw: string | null): {
   name: string;
   snippet: string;
   category: string;
-  tags: string[];
-  ref_image_ids: number[];
+  tags: string[] | null;
+  ref_image_ids: number[] | null;
 } | null {
   if (!raw) {
     return null;
   }
-  const parsed = JSON.parse(raw) as {
+  let parsed: {
     name?: unknown;
     snippet?: unknown;
     category?: unknown;
     tags?: unknown;
     ref_image_ids?: unknown;
   };
+  try {
+    parsed = JSON.parse(raw) as typeof parsed;
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) {
+    return null;
+  }
   return {
     name: typeof parsed.name === "string" ? parsed.name : "",
     snippet: typeof parsed.snippet === "string" ? parsed.snippet : "",
     category: typeof parsed.category === "string" ? parsed.category : "",
     tags: Array.isArray(parsed.tags)
       ? parsed.tags.filter((tag): tag is string => typeof tag === "string")
-      : [],
+      : null,
     ref_image_ids: Array.isArray(parsed.ref_image_ids)
       ? parsed.ref_image_ids.filter(
           (id): id is number => Number.isSafeInteger(id) && id > 0,
         )
-      : [],
+      : null,
   };
+}
+
+// :id params come off the URL as strings; production D1 rejects NaN binds
+// with a 500, so validate here and let callers return a clean 404.
+function styleIdParam(c: Context<{ Bindings: Env; Variables: AuthVariables }>):
+  | number
+  | null {
+  const id = Number(c.req.param("id"));
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
 adminRoutes.use("/admin/*", requireAdmin);
@@ -105,7 +126,8 @@ adminRoutes.get("/admin/pending", async (c) => {
 });
 
 adminRoutes.post("/admin/styles/:id/approve", async (c) => {
-  const style = await getStyleById(c.env.DB, Number(c.req.param("id")));
+  const id = styleIdParam(c);
+  const style = id === null ? null : await getStyleById(c.env.DB, id);
   if (!style) {
     return errorJson("not_found", "style not found", 404);
   }
@@ -114,16 +136,22 @@ adminRoutes.post("/admin/styles/:id/approve", async (c) => {
     if (!revision) {
       return errorJson("bad_revision", "pending revision is invalid", 400);
     }
-    const oldRefs = await getImagesForStyle(c.env.DB, style.id, {
-      role: "reference",
-      pending: 0,
-    });
-    // Promote staged rows BEFORE deleting the old ones: if a staged ref
-    // shares its content-addressed key with an old ref, the surviving row
-    // keeps the R2 object alive.
-    await setImagesPending(c.env.DB, revision.ref_image_ids, 0);
-    await deleteImageRowsAndObjects(c.env, oldRefs);
-    await replaceTags(c.env.DB, style.id, revision.tags);
+    // null ref_image_ids = the edit never supplied refs; keep the live ones.
+    if (revision.ref_image_ids) {
+      const oldRefs = await getImagesForStyle(c.env.DB, style.id, {
+        role: "reference",
+        pending: 0,
+      });
+      // Promote staged rows BEFORE deleting the old ones: if a staged ref
+      // shares its content-addressed key with an old ref, the surviving row
+      // keeps the R2 object alive.
+      await setImagesPending(c.env.DB, revision.ref_image_ids, 0);
+      await deleteImageRowsAndObjects(c.env, oldRefs);
+    }
+    // null tags = the edit never supplied tags; keep the live ones.
+    if (revision.tags) {
+      await replaceTags(c.env.DB, style.id, revision.tags);
+    }
     const updated = await approveStyleRevision(c.env.DB, style.id, revision);
     return c.json({ style: { id: updated.id, status: updated.status, version: updated.version } });
   }
@@ -135,7 +163,8 @@ adminRoutes.post("/admin/styles/:id/approve", async (c) => {
 });
 
 adminRoutes.post("/admin/styles/:id/reject", async (c) => {
-  const style = await getStyleById(c.env.DB, Number(c.req.param("id")));
+  const id = styleIdParam(c);
+  const style = id === null ? null : await getStyleById(c.env.DB, id);
   if (!style) {
     return errorJson("not_found", "style not found", 404);
   }
@@ -158,7 +187,8 @@ adminRoutes.post("/admin/styles/:id/reject", async (c) => {
 });
 
 adminRoutes.post("/admin/styles/:id/delist", async (c) => {
-  const style = await getStyleById(c.env.DB, Number(c.req.param("id")));
+  const id = styleIdParam(c);
+  const style = id === null ? null : await getStyleById(c.env.DB, id);
   if (!style) {
     return errorJson("not_found", "style not found", 404);
   }
@@ -167,7 +197,8 @@ adminRoutes.post("/admin/styles/:id/delist", async (c) => {
 });
 
 adminRoutes.post("/admin/styles/:id/official-example", async (c) => {
-  const style = await getStyleById(c.env.DB, Number(c.req.param("id")));
+  const id = styleIdParam(c);
+  const style = id === null ? null : await getStyleById(c.env.DB, id);
   if (!style || style.status !== "approved") {
     return errorJson("not_found", "style not found", 404);
   }

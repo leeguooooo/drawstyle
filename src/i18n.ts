@@ -106,6 +106,7 @@ export interface Dict {
   fieldSnippet: string;
   fieldExamples: string;
   fieldReferences: string;
+  refsKeepHint: string;
   submitButton: string;
 
   meTitle: string;
@@ -160,6 +161,7 @@ const zh: Dict = {
   fieldSnippet: "Prompt 片段",
   fieldExamples: "示例图",
   fieldReferences: "参考图",
+  refsKeepHint: "留空表示保留现有参考图",
   submitButton: "提交",
 
   meTitle: "我的",
@@ -219,6 +221,7 @@ const en: Dict = {
   fieldSnippet: "Snippet",
   fieldExamples: "Examples",
   fieldReferences: "References",
+  refsKeepHint: "Leave empty to keep the existing reference images",
   submitButton: "Submit",
 
   meTitle: "Mine",

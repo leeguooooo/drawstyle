@@ -1,5 +1,10 @@
 import { categoryLabel, CATEGORIES } from "../api/styles-read";
-import { getApprovedStyleBySlug, getStyleBySlug, type UserRow } from "../db";
+import {
+  getApprovedStyleBySlug,
+  getStyleBySlug,
+  getTagsForStyle,
+  type UserRow,
+} from "../db";
 import { t, type Locale } from "../i18n";
 import { escapeHtml, page } from "./layout";
 
@@ -17,6 +22,9 @@ export async function submitPage(
   const action = isEdit ? `/api/styles/${edit!.slug}` : "/api/styles";
   const method = isEdit ? "PUT" : "POST";
   const category = source?.category ?? "report";
+  // Prefill existing tags so a snippet-only edit re-submits them unchanged
+  // (the API additionally treats an absent tag field as "unchanged").
+  const tags = source ? await getTagsForStyle(db, source.id) : [];
   return page({
     locale,
     path: `/${locale}/submit`,
@@ -30,10 +38,11 @@ export async function submitPage(
       <label>${escapeHtml(d.fieldName)}</label><input name="name" value="${escapeHtml(source?.name ?? "")}" required>
       <label>${escapeHtml(d.fieldKind)}</label><select name="kind" ${isEdit ? "disabled" : ""}><option value="style">style</option><option value="character">character</option></select>
       <label>${escapeHtml(d.fieldCategory)}</label><select name="category">${CATEGORIES.map((cat) => `<option value="${cat.key}" ${cat.key === category ? "selected" : ""}>${escapeHtml(categoryLabel(cat.key, locale))}</option>`).join("")}</select>
-      <label>${escapeHtml(d.fieldTags)}</label><input name="tag" placeholder="watercolor">
+      <label>${escapeHtml(d.fieldTags)}</label><input name="tag" value="${escapeHtml(tags.join(" "))}" placeholder="watercolor">
       <label>${escapeHtml(d.fieldSnippet)}</label><textarea name="snippet">${escapeHtml(source?.snippet ?? "")}</textarea>
       ${isEdit ? "" : `<label>${escapeHtml(d.fieldExamples)}</label><input name="example[]" type="file" multiple required>`}
       <label>${escapeHtml(d.fieldReferences)}</label><input name="ref[]" type="file" multiple>
+      ${isEdit ? `<p class="muted">${escapeHtml(d.refsKeepHint)}</p>` : ""}
       <p><button>${escapeHtml(d.submitButton)}</button></p>
     </form>`,
   });
