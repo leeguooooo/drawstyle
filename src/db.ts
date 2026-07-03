@@ -261,6 +261,24 @@ export async function getImagesByKey(
   return result.results;
 }
 
+// Reference count for a content-addressed R2 key. putImage keys objects by
+// sha256(bytes), so identical uploads across styles/roles share ONE object;
+// callers must check this before deleting anything from R2.
+export async function countImagesByKey(
+  db: D1Database,
+  r2_key: string,
+): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) AS count
+       FROM drawstyle_style_images
+       WHERE r2_key = ?`,
+    )
+    .bind(r2_key)
+    .first<{ count: number }>();
+  return row?.count ?? 0;
+}
+
 export async function getStyleBySlug(
   db: D1Database,
   slug: string,

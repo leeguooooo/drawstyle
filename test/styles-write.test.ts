@@ -456,6 +456,51 @@ describe("styles write API", () => {
     expect(res.status).toBe(403);
   });
 
+  it("keeps the R2 object when an edit re-submits the identical ref file", async () => {
+    const { user, cookie } = await sessionCookie();
+    const style = await createStyle(env.DB, {
+      slug: uniq("reupload"),
+      name: "Reupload",
+      owner_user_id: user.id,
+      kind: "style",
+      category: "report",
+      status: "approved",
+    });
+    const bytes = new Uint8Array([
+      ...PNG,
+      ...new TextEncoder().encode(crypto.randomUUID()),
+    ]);
+
+    const first = editForm();
+    first.append("ref[]", imageFile("ref.png", bytes));
+    expect(
+      (await requestWithSession(`/api/styles/${style.slug}`, "PUT", cookie, first))
+        .status,
+    ).toBe(200);
+    const stagedBefore = await getImagesForStyle(env.DB, style.id, {
+      role: "reference",
+      pending: 1,
+    });
+    expect(stagedBefore).toHaveLength(1);
+    const key = stagedBefore[0].r2_key;
+
+    // Same bytes again: content-addressed key collides with the row we replace.
+    const second = editForm();
+    second.append("ref[]", imageFile("ref.png", bytes));
+    expect(
+      (await requestWithSession(`/api/styles/${style.slug}`, "PUT", cookie, second))
+        .status,
+    ).toBe(200);
+
+    const stagedAfter = await getImagesForStyle(env.DB, style.id, {
+      role: "reference",
+      pending: 1,
+    });
+    expect(stagedAfter).toHaveLength(1);
+    expect(stagedAfter[0].r2_key).toBe(key);
+    expect(await env.ASSETS.get(key)).not.toBeNull();
+  });
+
   it("likes and unlikes approved styles idempotently", async () => {
     const owner = await makeUser();
     const style = await createStyle(env.DB, {

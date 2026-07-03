@@ -4,7 +4,6 @@ import {
   addImage,
   approveNewStyle,
   approveStyleRevision,
-  deleteImagesByIds,
   delistStyle,
   getImagesForStyle,
   getStyleById,
@@ -13,9 +12,12 @@ import {
   rejectStyleRevision,
   replaceTags,
   setImagesPending,
-  type ImageRow,
 } from "../db";
-import { ImageValidationError, putImage } from "../images";
+import {
+  ImageValidationError,
+  deleteImageRowsAndObjects,
+  putImage,
+} from "../images";
 
 export const adminRoutes = new Hono<{
   Bindings: Env;
@@ -84,14 +86,6 @@ function parseRevision(raw: string | null): {
   };
 }
 
-async function deleteRowsAndObjects(env: Env, rows: ImageRow[]): Promise<void> {
-  await deleteImagesByIds(
-    env.DB,
-    rows.map((row) => row.id),
-  );
-  await Promise.all(rows.map((row) => env.ASSETS.delete(row.r2_key)));
-}
-
 adminRoutes.use("/admin/*", requireAdmin);
 
 adminRoutes.get("/admin/pending", async (c) => {
@@ -124,8 +118,11 @@ adminRoutes.post("/admin/styles/:id/approve", async (c) => {
       role: "reference",
       pending: 0,
     });
-    await deleteRowsAndObjects(c.env, oldRefs);
+    // Promote staged rows BEFORE deleting the old ones: if a staged ref
+    // shares its content-addressed key with an old ref, the surviving row
+    // keeps the R2 object alive.
     await setImagesPending(c.env.DB, revision.ref_image_ids, 0);
+    await deleteImageRowsAndObjects(c.env, oldRefs);
     await replaceTags(c.env.DB, style.id, revision.tags);
     const updated = await approveStyleRevision(c.env.DB, style.id, revision);
     return c.json({ style: { id: updated.id, status: updated.status, version: updated.version } });
@@ -149,7 +146,7 @@ adminRoutes.post("/admin/styles/:id/reject", async (c) => {
       role: "reference",
       pending: 1,
     });
-    await deleteRowsAndObjects(c.env, staged);
+    await deleteImageRowsAndObjects(c.env, staged);
     const updated = await rejectStyleRevision(c.env.DB, style.id, note);
     return c.json({ style: { id: updated.id, status: updated.status, version: updated.version } });
   }

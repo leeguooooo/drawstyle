@@ -1,6 +1,12 @@
 import type { Context } from "hono";
 import { isAdminEmail, type AuthVariables } from "./auth";
-import { getImagesByKey, type ImageAccessRow } from "./db";
+import {
+  countImagesByKey,
+  deleteImagesByIds,
+  getImagesByKey,
+  type ImageAccessRow,
+  type ImageRow,
+} from "./db";
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -101,6 +107,39 @@ export async function putImage(
     content_type: sniffed.content_type,
     size: bytes.byteLength,
   };
+}
+
+// R2 objects are content-addressed (sha256), so one object can be referenced
+// by many drawstyle_style_images rows across styles and roles. Deleting the
+// object while another row still points at it is user-visible data loss, so
+// every delete goes: remove DB rows first, then drop only keys that no
+// surviving row references.
+export async function deleteUnreferencedObjects(
+  env: Env,
+  keys: Iterable<string>,
+): Promise<void> {
+  for (const key of new Set(keys)) {
+    if ((await countImagesByKey(env.DB, key)) === 0) {
+      await env.ASSETS.delete(key);
+    }
+  }
+}
+
+export async function deleteImageRowsAndObjects(
+  env: Env,
+  rows: Array<Pick<ImageRow, "id" | "r2_key">>,
+): Promise<void> {
+  if (rows.length === 0) {
+    return;
+  }
+  await deleteImagesByIds(
+    env.DB,
+    rows.map((row) => row.id),
+  );
+  await deleteUnreferencedObjects(
+    env,
+    rows.map((row) => row.r2_key),
+  );
 }
 
 function canViewImage(

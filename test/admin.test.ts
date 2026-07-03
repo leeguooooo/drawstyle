@@ -66,9 +66,11 @@ async function makeStyleForReview(
   });
 }
 
-async function addRef(styleId: number, pending: number) {
-  const bytes = new Uint8Array(PNG);
-  bytes[8] = crypto.getRandomValues(new Uint8Array(1))[0];
+function uniquePng(): Uint8Array {
+  return new Uint8Array([...PNG, ...new TextEncoder().encode(crypto.randomUUID())]);
+}
+
+async function addRef(styleId: number, pending: number, bytes = uniquePng()) {
   const stored = await putImage(env.ASSETS, bytes);
   return addImage(env.DB, {
     style_id: styleId,
@@ -170,6 +172,71 @@ describe("admin API", () => {
       pending: 0,
     });
     expect(liveRefs.map((image) => image.id)).toEqual([staged.id]);
+  });
+
+  it("keeps the R2 object when the approved revision re-uses the old ref bytes", async () => {
+    const style = await makeStyleForReview("approved");
+    const bytes = uniquePng();
+    const oldRef = await addRef(style.id, 0, bytes);
+    // Staged replacement with IDENTICAL bytes → same content-addressed key.
+    const staged = await addRef(style.id, 1, bytes);
+    expect(staged.r2_key).toBe(oldRef.r2_key);
+    await setPendingRevision(
+      env.DB,
+      style.id,
+      JSON.stringify({
+        name: "Same Bytes",
+        snippet: "same",
+        category: "report",
+        tags: ["same"],
+        ref_image_ids: [staged.id],
+      }),
+    );
+
+    const res = await adminRequest(`/api/admin/styles/${style.id}/approve`);
+    expect(res.status).toBe(200);
+    const liveRefs = await getImagesForStyle(env.DB, style.id, {
+      role: "reference",
+      pending: 0,
+    });
+    expect(liveRefs.map((image) => image.id)).toEqual([staged.id]);
+    expect(await env.ASSETS.get(staged.r2_key)).not.toBeNull();
+  });
+
+  it("keeps a shared R2 object when rejecting a revision whose staged ref another style references", async () => {
+    const style = await makeStyleForReview("approved");
+    const other = await makeStyleForReview("approved");
+    const bytes = uniquePng();
+    const otherRef = await addRef(other.id, 0, bytes);
+    const staged = await addRef(style.id, 1, bytes);
+    expect(staged.r2_key).toBe(otherRef.r2_key);
+    await setPendingRevision(
+      env.DB,
+      style.id,
+      JSON.stringify({
+        name: "Shared",
+        snippet: "shared",
+        category: "report",
+        tags: [],
+        ref_image_ids: [staged.id],
+      }),
+    );
+
+    const res = await adminRequest(
+      `/api/admin/styles/${style.id}/reject`,
+      "POST",
+      undefined,
+      JSON.stringify({ review_note: "shared bytes" }),
+      "application/json",
+    );
+    expect(res.status).toBe(200);
+    expect(await getImagesForStyle(env.DB, style.id, { pending: 1 })).toEqual([]);
+    // The other style still references the same content-addressed object.
+    expect(await env.ASSETS.get(otherRef.r2_key)).not.toBeNull();
+    const survivors = await getImagesForStyle(env.DB, other.id, {
+      role: "reference",
+    });
+    expect(survivors.map((image) => image.id)).toEqual([otherRef.id]);
   });
 
   it("rejects a revision by discarding staged refs and keeping live content", async () => {

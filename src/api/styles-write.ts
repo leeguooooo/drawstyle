@@ -7,7 +7,6 @@ import {
   addTags,
   countUserStylesSince,
   createStyle,
-  deleteImagesByIds,
   getApprovedStyleBySlug,
   getImagesForStyle,
   getStyleBySlug,
@@ -19,7 +18,11 @@ import {
   unlikeStyle,
   updateStyleFields,
 } from "../db";
-import { ImageValidationError, putImage } from "../images";
+import {
+  ImageValidationError,
+  deleteImageRowsAndObjects,
+  putImage,
+} from "../images";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9_-]*$/;
 const TAG_RE = /^[a-z0-9][a-z0-9_-]*$/;
@@ -278,12 +281,6 @@ stylesWriteRoutes.put("/styles/:slug", requireUser, async (c) => {
       role: "reference",
       pending: 1,
     });
-    await deleteImagesByIds(
-      c.env.DB,
-      oldPending.map((image) => image.id),
-    );
-    await Promise.all(oldPending.map((image) => c.env.ASSETS.delete(image.r2_key)));
-
     const stagedIds: number[] = [];
     for (const image of refs) {
       const row = await addImage(c.env.DB, {
@@ -296,6 +293,10 @@ stylesWriteRoutes.put("/styles/:slug", requireUser, async (c) => {
       });
       stagedIds.push(row.id);
     }
+    // Insert the new staged rows BEFORE deleting the superseded ones: R2 keys
+    // are content-addressed, so re-uploading identical bytes reuses the key
+    // and the surviving new row must keep the object alive.
+    await deleteImageRowsAndObjects(c.env, oldPending);
     const updated = await setPendingRevision(
       c.env.DB,
       style.id,

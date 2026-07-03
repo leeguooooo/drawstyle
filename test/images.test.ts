@@ -1,11 +1,12 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { SESSION_COOKIE_NAME, signSession } from "../src/auth";
-import { addImage, createStyle, createUser } from "../src/db";
+import { addImage, createStyle, createUser, getImagesForStyle } from "../src/db";
 import app from "../src/index";
 import {
   ImageValidationError,
   MAX_IMAGE_BYTES,
+  deleteImageRowsAndObjects,
   putImage,
   sniffMime,
   validateImageBytes,
@@ -107,5 +108,50 @@ describe("images", () => {
     const { stored } = await seedImage("approved", 1);
     const res = await app.request(`/img/${stored.r2_key}`, {}, env);
     expect(res.status).toBe(404);
+  });
+
+  it("deletes a shared R2 object only after the last referencing row is gone", async () => {
+    const user = await createUser(env.DB, {
+      oidc_sub: `refcount-${crypto.randomUUID()}`,
+      email: `refcount-${crypto.randomUUID()}@test.dev`,
+      display_name: "Refcount Owner",
+    });
+    const makeRefStyle = () =>
+      createStyle(env.DB, {
+        slug: `refcount-${crypto.randomUUID()}`,
+        name: "Refcount",
+        owner_user_id: user.id,
+        kind: "style",
+        category: "report",
+        status: "approved",
+      });
+    const styleA = await makeRefStyle();
+    const styleB = await makeRefStyle();
+    // Identical bytes → identical content-addressed r2_key shared by both rows.
+    const bytes = new Uint8Array([
+      ...PNG,
+      ...new TextEncoder().encode(crypto.randomUUID()),
+    ]);
+    const stored = await putImage(env.ASSETS, bytes);
+    const rowA = await addImage(env.DB, {
+      style_id: styleA.id,
+      r2_key: stored.r2_key,
+      role: "reference",
+      content_type: stored.content_type,
+    });
+    const rowB = await addImage(env.DB, {
+      style_id: styleB.id,
+      r2_key: stored.r2_key,
+      role: "reference",
+      content_type: stored.content_type,
+    });
+
+    await deleteImageRowsAndObjects(env, [rowA]);
+    expect(await env.ASSETS.get(stored.r2_key)).not.toBeNull();
+    const survivors = await getImagesForStyle(env.DB, styleB.id);
+    expect(survivors.map((row) => row.id)).toEqual([rowB.id]);
+
+    await deleteImageRowsAndObjects(env, [rowB]);
+    expect(await env.ASSETS.get(stored.r2_key)).toBeNull();
   });
 });
