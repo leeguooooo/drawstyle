@@ -1,6 +1,10 @@
 // Typed D1 query helpers. One function per query; callers never build SQL
 // with string interpolation — everything goes through `.bind()`.
 //
+// Cloudflare only allows 10 D1 databases on this account, so drawstyle shares
+// the account-level public-db with other projects. Keep every table/index name
+// prefixed with drawstyle_ to avoid cross-project collisions in that shared DB.
+//
 // Row interfaces mirror migrations/0001_init.sql verbatim. Keep them in sync
 // if the schema changes.
 
