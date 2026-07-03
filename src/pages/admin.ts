@@ -19,8 +19,8 @@ export async function adminPage(
     <section class="grid">${items.map((style) => `<article class="card">
       <h2>${escapeHtml(style.name)}</h2>
       <p><span class="badge">${style.pending_revision ? escapeHtml(d.badgeRevision) : escapeHtml(d.badgeNew)}</span> <span class="badge">${escapeHtml(statusLabel(style.status, locale))}</span></p>
-      <form action="/api/admin/styles/${style.id}/approve" data-fetch="1" data-done="/${locale}/admin"><button>${escapeHtml(d.adminApprove)}</button></form>
-      <form action="/api/admin/styles/${style.id}/reject" data-fetch="1" data-done="/${locale}/admin"><label>${escapeHtml(d.adminNote)}</label><input name="review_note"><button class="danger">${escapeHtml(d.adminReject)}</button></form>
+      <form action="/api/admin/styles/${style.id}/approve" method="post" data-fetch="1" data-done="/${locale}/admin"><button>${escapeHtml(d.adminApprove)}</button></form>
+      <form action="/api/admin/styles/${style.id}/reject" method="post" data-fetch="1" data-done="/${locale}/admin"><label>${escapeHtml(d.adminNote)}</label><input name="review_note"><button class="danger">${escapeHtml(d.adminReject)}</button></form>
     </article>`).join("")}</section>`,
   });
 }

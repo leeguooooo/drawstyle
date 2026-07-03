@@ -184,5 +184,10 @@ describe("SSR pages", () => {
     expect(html).toContain("Admin Pending");
     expect(html).toContain(`/api/admin/styles/${pending.id}/approve`);
     expect(html).toContain(`/api/admin/styles/${pending.id}/reject`);
+    // the approve/reject forms must carry method="post" — the client fetch
+    // helper reads form.method (DOM-defaults to "get" without it), which would
+    // otherwise fire a GET at the POST-only route and silently fail.
+    expect(html).toMatch(/action="\/api\/admin\/styles\/\d+\/approve" method="post"/);
+    expect(html).toMatch(/action="\/api\/admin\/styles\/\d+\/reject" method="post"/);
   });
 });
