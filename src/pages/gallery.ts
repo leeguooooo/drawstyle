@@ -45,9 +45,13 @@ async function styleCard(
   locale: Locale,
   style: StyleRow,
 ): Promise<string> {
-  const [image] = await getImagesForStyle(db, style.id, { role: "example", pending: 0 });
+  // Cover = first example if any, else the first available (reference) image —
+  // a style with only reference images (e.g. a pinned character) still gets a
+  // card cover, matching the detail-page hero selection.
+  const images = await getImagesForStyle(db, style.id, { pending: 0 });
+  const cover = images.find((image) => image.role === "example") ?? images[0];
   return `<article class="card">
-    ${image ? `<img class="card-img" src="${imageUrl(origin, image.r2_key)}" alt="">` : ""}
+    ${cover ? `<img class="card-img" src="${imageUrl(origin, cover.r2_key)}" alt="">` : ""}
     <h2><a href="/${locale}/s/${escapeHtml(style.slug)}">${escapeHtml(style.name)}</a></h2>
     <p><span class="badge">${escapeHtml(style.kind)}</span> <span class="badge">${escapeHtml(categoryLabel(style.category, locale))}</span></p>
     <p class="muted">♥${style.likes_count} · ⇩${style.pulls_count}</p>

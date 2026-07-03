@@ -42,7 +42,53 @@ async function addExample(styleId: number) {
   });
 }
 
+async function addReference(styleId: number) {
+  const stored = await putImage(env.ASSETS, PNG);
+  await addImage(env.DB, {
+    style_id: styleId,
+    r2_key: stored.r2_key,
+    role: "reference",
+    content_type: stored.content_type,
+  });
+  return stored.r2_key;
+}
+
 describe("SSR pages", () => {
+  it("gallery card falls back to a reference image when no example exists", async () => {
+    const owner = await makeUser();
+    const style = await approvedStyle(owner.id, { name: "RefOnly Style" });
+    const refKey = await addReference(style.id); // no example at all
+
+    const res = await app.request("/zh/", {}, env);
+    const html = await res.text();
+    // the reference-only style still gets a card cover image
+    expect(html).toContain(`class="card-img" src="`);
+    expect(html).toContain(encodeURIComponent(refKey));
+  });
+
+  it("gallery card prefers the example image over a reference when both exist", async () => {
+    const owner = await makeUser();
+    const style = await approvedStyle(owner.id, { name: "BothImages Style" });
+    const refKey = await addReference(style.id);
+    // add an example AFTER the reference; example must win as the cover
+    const stored = await putImage(env.ASSETS, new Uint8Array([...PNG, 2, 3]));
+    await addImage(env.DB, {
+      style_id: style.id,
+      r2_key: stored.r2_key,
+      role: "example",
+      content_type: stored.content_type,
+    });
+
+    const res = await app.request("/zh/", {}, env);
+    const html = await res.text();
+    // find this style's card and assert its cover is the example key, not the ref
+    expect(html).toContain(encodeURIComponent(stored.r2_key));
+    // the card-img for THIS style should not be the reference key
+    const card = html.split('class="card"').find((c) => c.includes("BothImages Style")) ?? "";
+    expect(card).toContain(encodeURIComponent(stored.r2_key));
+    expect(card).not.toContain(encodeURIComponent(refKey));
+  });
+
   it("renders the gallery with approved cards, category nav, and beacon script", async () => {
     const owner = await makeUser();
     const style = await approvedStyle(owner.id, { name: "Gallery Style" });

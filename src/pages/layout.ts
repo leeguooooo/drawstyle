@@ -42,6 +42,10 @@ export function page(opts: PageOptions): string {
     /* leeguoo.com hand-drawn design language: paper background, ink lines,
        wobbly borders, sketch shadows. Display fonts on headings only. */
     :root {
+      /* Force the warm paper look in every OS theme — leeguoo.com and
+         blog.leeguoo.com ship light-only, no dark variant. color-scheme:light
+         keeps form controls/scrollbars light on a dark-mode OS. */
+      color-scheme: light;
       --paper:#fcfbf4; --ink:#1a1a1a; --panel:#ffffff;
       /* --accent is the brand red for FILLS + large display text; --accent-text
          is a darkened red that passes WCAG AA for normal-size text on paper. */
@@ -52,15 +56,6 @@ export function page(opts: PageOptions): string {
       --font-display:'ZCOOL KuaiLe',"PingFang SC","Microsoft YaHei",cursive,sans-serif;
       --font-marker:'Permanent Marker','ZCOOL KuaiLe',"PingFang SC",cursive,sans-serif;
       --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    }
-    @media (prefers-color-scheme: dark) {
-      /* Blackboard variant: same hand, chalk-colored lines. */
-      :root {
-        --paper:#161512; --ink:#f0eee6; --panel:#211f1a;
-        --accent:#ff6a5e; --accent-text:#ff6a5e; --accent-2:#7b9ff0; --ok:#4cc177; --danger:#d0402e;
-        --muted:#a09d90;
-        --paper-tint:#1c1a16; --shadow:rgba(0,0,0,.45);
-      }
     }
     * { box-sizing: border-box; }
     body { margin:0; font-family:var(--font-body); background:var(--paper); color:var(--ink); line-height:1.6; }
