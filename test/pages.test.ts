@@ -237,4 +237,61 @@ describe("SSR pages", () => {
     expect(html).toMatch(/action="\/api\/admin\/styles\/\d+\/approve" method="post"/);
     expect(html).toMatch(/action="\/api\/admin\/styles\/\d+\/reject" method="post"/);
   });
+
+  it("comments: post → shows on detail → author can delete; anonymous sees a sign-in link", async () => {
+    const owner = await makeUser();
+    const style = await approvedStyle(owner.id, { name: "Commented Style" });
+    const { cookie } = await cookieFor("commenter@test.dev");
+    const csrf = { Cookie: cookie, "X-Requested-With": "drawstyle" };
+
+    // empty comment rejected
+    const empty = await app.request(`/api/styles/${style.slug}/comments`,
+      { method: "POST", headers: csrf, body: new URLSearchParams({ body: "  " }) }, env);
+    expect(empty.status).toBe(400);
+
+    // post a real comment
+    const post = await app.request(`/api/styles/${style.slug}/comments`,
+      { method: "POST", headers: csrf, body: new URLSearchParams({ body: "love this style!" }) }, env);
+    expect(post.status).toBe(200);
+
+    // it renders on the detail page with a delete control for the author
+    let html = await (await app.request(`/zh/s/${style.slug}`, { headers: { Cookie: cookie } }, env)).text();
+    expect(html).toContain("love this style!");
+    expect(html).toContain("评论 (1)");
+    expect(html).toMatch(/data-action="\/api\/comments\/\d+" data-method="DELETE"/);
+
+    // anonymous sees the comment but a sign-in link instead of a post form
+    html = await (await app.request(`/zh/s/${style.slug}`, {}, env)).text();
+    expect(html).toContain("love this style!");
+    expect(html).toContain("登录后即可评论");
+    expect(html).not.toContain('name="body"');
+
+    // author deletes it
+    const idMatch = html.match(/\/api\/comments\/(\d+)/);
+    // (re-fetch as author to get the delete control id)
+    const authed = await (await app.request(`/zh/s/${style.slug}`, { headers: { Cookie: cookie } }, env)).text();
+    const id = authed.match(/\/api\/comments\/(\d+)/)?.[1];
+    expect(id).toBeTruthy();
+    const del = await app.request(`/api/comments/${id}`, { method: "DELETE", headers: csrf }, env);
+    expect(del.status).toBe(200);
+    html = await (await app.request(`/zh/s/${style.slug}`, { headers: { Cookie: cookie } }, env)).text();
+    expect(html).not.toContain("love this style!");
+    expect(html).toContain("评论 (0)");
+    void idMatch;
+  });
+
+  it("comments: a non-author non-admin cannot delete someone else's comment", async () => {
+    const owner = await makeUser();
+    const style = await approvedStyle(owner.id, { name: "Guarded Comments" });
+    const author = await cookieFor("author@test.dev");
+    const other = await cookieFor("other@test.dev");
+    await app.request(`/api/styles/${style.slug}/comments`,
+      { method: "POST", headers: { Cookie: author.cookie, "X-Requested-With": "drawstyle" },
+        body: new URLSearchParams({ body: "mine" }) }, env);
+    const authed = await (await app.request(`/zh/s/${style.slug}`, { headers: { Cookie: author.cookie } }, env)).text();
+    const id = authed.match(/\/api\/comments\/(\d+)/)?.[1];
+    const del = await app.request(`/api/comments/${id}`,
+      { method: "DELETE", headers: { Cookie: other.cookie, "X-Requested-With": "drawstyle" } }, env);
+    expect(del.status).toBe(403);
+  });
 });

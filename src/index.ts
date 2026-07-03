@@ -127,6 +127,7 @@ for (const locale of LOCALES) {
       locale,
       c.req.param("slug"),
       c.var.user,
+      c.var.user ? isAdminEmail(c.var.user.email, c.env) : false,
     );
     return html ? c.html(html) : c.notFound();
   });

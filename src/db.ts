@@ -862,3 +862,57 @@ export async function listCuratedTags(db: D1Database): Promise<string[]> {
     .all<{ tag: string }>();
   return result.results.map((row) => row.tag);
 }
+
+export interface CommentRow {
+  id: number;
+  style_id: number;
+  user_id: number;
+  body: string;
+  created_at: string;
+  author_name: string;
+}
+
+export async function createComment(
+  db: D1Database,
+  input: { style_id: number; user_id: number; body: string },
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO drawstyle_comments (style_id, user_id, body, created_at)
+       VALUES (?, ?, ?, ?)`,
+    )
+    .bind(input.style_id, input.user_id, input.body, new Date().toISOString())
+    .run();
+}
+
+export async function listComments(
+  db: D1Database,
+  styleId: number,
+): Promise<CommentRow[]> {
+  const res = await db
+    .prepare(
+      `SELECT c.id, c.style_id, c.user_id, c.body, c.created_at,
+              u.display_name AS author_name
+       FROM drawstyle_comments c
+       JOIN drawstyle_users u ON u.id = c.user_id
+       WHERE c.style_id = ?
+       ORDER BY c.created_at ASC`,
+    )
+    .bind(styleId)
+    .all<CommentRow>();
+  return res.results ?? [];
+}
+
+export async function getCommentById(
+  db: D1Database,
+  id: number,
+): Promise<{ id: number; user_id: number } | null> {
+  return db
+    .prepare(`SELECT id, user_id FROM drawstyle_comments WHERE id = ?`)
+    .bind(id)
+    .first<{ id: number; user_id: number }>();
+}
+
+export async function deleteComment(db: D1Database, id: number): Promise<void> {
+  await db.prepare(`DELETE FROM drawstyle_comments WHERE id = ?`).bind(id).run();
+}

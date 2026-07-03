@@ -91,6 +91,13 @@ export function page(opts: PageOptions): string {
     .lightbox[hidden] { display:none; }
     .lightbox img { max-width:96vw; max-height:92vh; border:3px solid var(--panel); border-radius:12px 14px 11px 13px; background:var(--panel); }
     .zoomable { cursor:zoom-in; }
+    /* comments */
+    .comments { list-style:none; padding:0; margin:0 0 16px; }
+    .comment { border:2px solid var(--ink); background:var(--panel); border-radius:12px 14px 11px 13px / 14px 11px 13px 12px; padding:10px 14px; margin:0 0 10px; box-shadow:2px 2px 0 var(--shadow); }
+    .comment__meta { margin:0 0 4px; font-size:13px; }
+    .comment__body { margin:0; white-space:pre-wrap; }
+    .linkish { background:none; border:0; box-shadow:none; padding:0; color:var(--accent-text); font-size:12px; cursor:pointer; text-decoration:underline; }
+    .linkish:active { transform:none; }
     .muted { color:var(--muted); }
     .badge { display:inline-block; font-family:var(--font-marker); font-size:12px; letter-spacing:.5px; border:2px solid var(--ink); border-radius:10px 12px 11px 13px / 13px 10px 12px 11px; padding:1px 9px; color:var(--ink); background:var(--panel); text-decoration:none; }
     a.badge:hover { color:var(--accent-text); border-color:var(--accent); text-decoration:none; }

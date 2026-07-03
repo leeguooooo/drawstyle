@@ -1,13 +1,16 @@
 import { Hono, type Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { CATEGORIES } from "./styles-read";
-import { requireUser, type AuthVariables } from "../auth";
+import { isAdminEmail, requireUser, type AuthVariables } from "../auth";
 import {
   addImage,
   addTags,
   countUserStylesSince,
+  createComment,
   createStyle,
+  deleteComment,
   getApprovedStyleBySlug,
+  getCommentById,
   getImagesForStyle,
   getStyleBySlug,
   likeStyle,
@@ -463,4 +466,46 @@ stylesWriteRoutes.delete("/styles/:slug/like", requireUser, async (c) => {
   await unlikeStyle(c.env.DB, c.var.user.id, style.id);
   const updated = await getApprovedStyleBySlug(c.env.DB, style.slug);
   return c.json({ likes_count: updated?.likes_count ?? 0 });
+});
+
+const MAX_COMMENT_LENGTH = 1000;
+
+stylesWriteRoutes.post("/styles/:slug/comments", requireUser, async (c) => {
+  const style = await getApprovedStyleBySlug(c.env.DB, c.req.param("slug"));
+  if (!style) {
+    return errorJson("not_found", "style not found", 404);
+  }
+  const form = await c.req.parseBody();
+  const body = String(form.body ?? "").trim();
+  if (!body) {
+    return errorJson("bad_comment", "comment cannot be empty", 400);
+  }
+  if (body.length > MAX_COMMENT_LENGTH) {
+    return errorJson("bad_comment", `comment too long (max ${MAX_COMMENT_LENGTH})`, 400);
+  }
+  await createComment(c.env.DB, {
+    style_id: style.id,
+    user_id: c.var.user.id,
+    body,
+  });
+  return c.json({ ok: true });
+});
+
+// Author or admin can delete a comment.
+stylesWriteRoutes.delete("/comments/:id", requireUser, async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id)) {
+    return errorJson("not_found", "comment not found", 404);
+  }
+  const comment = await getCommentById(c.env.DB, id);
+  if (!comment) {
+    return errorJson("not_found", "comment not found", 404);
+  }
+  const isOwner = comment.user_id === c.var.user.id;
+  const isAdmin = isAdminEmail(c.var.user.email, c.env);
+  if (!isOwner && !isAdmin) {
+    return errorJson("forbidden", "not allowed", 403);
+  }
+  await deleteComment(c.env.DB, id);
+  return c.json({ ok: true });
 });

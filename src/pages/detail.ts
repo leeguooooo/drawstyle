@@ -5,6 +5,7 @@ import {
   getTagsForStyle,
   getUserById,
   hasLiked,
+  listComments,
   type UserRow,
 } from "../db";
 import { SITE_URL } from "../config";
@@ -22,16 +23,18 @@ export async function detailPage(
   locale: Locale,
   slug: string,
   user?: UserRow,
+  isAdmin = false,
 ): Promise<string | null> {
   const style = await getApprovedStyleBySlug(db, slug);
   if (!style) {
     return null;
   }
   const d = t(locale);
-  const [images, tags, owner] = await Promise.all([
+  const [images, tags, owner, comments] = await Promise.all([
     getImagesForStyle(db, style.id, { pending: 0 }),
     getTagsForStyle(db, style.id),
     getUserById(db, style.owner_user_id),
+    listComments(db, style.id),
   ]);
   const imgs = images
     .map((image) => `<img class="zoomable" src="${origin}/img/${encodeURIComponent(image.r2_key)}" alt="${escapeHtml(image.role)}">`)
@@ -51,6 +54,28 @@ export async function detailPage(
   const ownerTools = user?.id === style.owner_user_id
     ? `<p><a class="button secondary" href="/${locale}/submit?edit=${escapeHtml(style.slug)}">${escapeHtml(d.edit)}</a></p>`
     : "";
+  // Comments: list + a post form for logged-in users (sign-in link otherwise).
+  // The author or an admin can delete a comment.
+  const commentItems = comments.length
+    ? comments
+        .map((cm) => {
+          const canDelete = isAdmin || (user && user.id === cm.user_id);
+          const del = canDelete
+            ? ` <button type="button" class="linkish" data-action="/api/comments/${cm.id}" data-method="DELETE">${escapeHtml(d.commentDelete)}</button>`
+            : "";
+          return `<li class="comment"><p class="comment__meta"><strong>${escapeHtml(cm.author_name)}</strong> <span class="muted">${escapeHtml(cm.created_at.slice(0, 10))}</span>${del}</p><p class="comment__body">${escapeHtml(cm.body)}</p></li>`;
+        })
+        .join("")
+    : `<li class="muted">${escapeHtml(d.commentEmpty)}</li>`;
+  const commentForm = user
+    ? `<form action="/api/styles/${escapeHtml(style.slug)}/comments" method="post" data-fetch data-method="POST" data-done="${canonicalPath}#comments">
+        <textarea name="body" required maxlength="1000" placeholder="${escapeHtml(d.commentPlaceholder)}"></textarea>
+        <p><button type="submit">${escapeHtml(d.commentSubmit)}</button></p>
+      </form>`
+    : `<p><a class="button" href="/auth/login?return_to=${encodeURIComponent(canonicalPath)}">${escapeHtml(d.commentSignIn)}</a></p>`;
+  const commentsSection = `<h2 id="comments">${escapeHtml(d.commentsHeading)} (${comments.length})</h2>
+    <ul class="comments">${commentItems}</ul>
+    ${commentForm}`;
   const jsonLd = [
     styleLdNode({
       name: style.name,
@@ -84,6 +109,7 @@ export async function detailPage(
       <a class="button secondary" href="/${locale}/submit?fork=${escapeHtml(style.slug)}">${escapeHtml(d.fork)}</a>
     </p>
     <p class="muted">${escapeHtml(d.versionLabel(style.version))} · ♥${style.likes_count} · ⇩${style.pulls_count}</p>
-    ${ownerTools}`,
+    ${ownerTools}
+    ${commentsSection}`,
   });
 }

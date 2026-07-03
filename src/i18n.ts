@@ -93,6 +93,12 @@ export interface Dict {
   copied: string;
   cliOnlineHint: string;
   cliPullHint: string;
+  commentsHeading: string;
+  commentPlaceholder: string;
+  commentSubmit: string;
+  commentSignIn: string;
+  commentEmpty: string;
+  commentDelete: string;
   like: string;
   unlike: string;
   fork: string;
@@ -161,6 +167,12 @@ const zh: Dict = {
   copied: "已复制 ✓",
   cliOnlineHint: "直接用这个风格生图(在线,无需先下载):",
   cliPullHint: "或下载到本地,之后离线反复用:",
+  commentsHeading: "评论",
+  commentPlaceholder: "说点什么…",
+  commentSubmit: "发表评论",
+  commentSignIn: "登录后即可评论",
+  commentEmpty: "还没有评论,来抢沙发。",
+  commentDelete: "删除",
   like: "喜欢",
   unlike: "取消喜欢",
   fork: "复刻",
@@ -234,6 +246,12 @@ const en: Dict = {
   copied: "Copied ✓",
   cliOnlineHint: "Generate with this style directly (online, no download):",
   cliPullHint: "Or pull it locally to reuse offline:",
+  commentsHeading: "Comments",
+  commentPlaceholder: "Say something…",
+  commentSubmit: "Post comment",
+  commentSignIn: "Sign in to comment",
+  commentEmpty: "No comments yet — be the first.",
+  commentDelete: "Delete",
   like: "Like",
   unlike: "Liked ✓",
   fork: "Fork",
