@@ -91,6 +91,8 @@ export interface Dict {
   cliHeading: string;
   copy: string;
   copied: string;
+  cliOnlineHint: string;
+  cliPullHint: string;
   like: string;
   unlike: string;
   fork: string;
@@ -157,6 +159,8 @@ const zh: Dict = {
   cliHeading: "命令行",
   copy: "复制",
   copied: "已复制 ✓",
+  cliOnlineHint: "直接用这个风格生图(在线,无需先下载):",
+  cliPullHint: "或下载到本地,之后离线反复用:",
   like: "喜欢",
   unlike: "取消喜欢",
   fork: "复刻",
@@ -228,6 +232,8 @@ const en: Dict = {
   cliHeading: "CLI",
   copy: "Copy",
   copied: "Copied ✓",
+  cliOnlineHint: "Generate with this style directly (online, no download):",
+  cliPullHint: "Or pull it locally to reuse offline:",
   like: "Like",
   unlike: "Liked ✓",
   fork: "Fork",

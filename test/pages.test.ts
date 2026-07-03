@@ -101,10 +101,11 @@ describe("SSR pages", () => {
     expect(html).toContain("领导汇报"); // the seeded style's category (report) is active
     // categories with no approved styles are NOT shown as chips (no fake PPT etc.)
     expect(html).not.toContain("专业PPT");
-    // the pull command has a copy button
-    expect(html).toContain('data-copy="chatgpt-imagegen style pull');
+    // the card offers a copyable one-shot online-generate command
+    expect(html).toContain("--style-online");
+    expect(html).toContain("data-copy=");
     expect(html).toContain("blog.leeguoo.com/scripts/visitor-beacon.js");
-    expect(html).toContain(`chatgpt-imagegen style pull ${style.slug}`);
+    expect(html).toContain(`--style-online ${style.slug}`);
   });
 
   it("renders style detail with snippet, pull command, and like/fork controls", async () => {
