@@ -46,8 +46,12 @@ export async function submitPage(
   // Hand-drawn dropzone wrapping a real <input type=file> (kept in the DOM so
   // FormData still reads it). layout.ts progressively enhances [data-dropzone]
   // into a drag area with thumbnail previews; with JS off the raw input works.
+  // A `required` attr on a visually-hidden file input silently blocks submit
+  // (Chrome can't focus the validation bubble). So mark the zone required and
+  // let the client validate it with a visible message; the server also enforces
+  // ≥1 example, so JS-off users still get a real error.
   const dropzone = (name: string, hint: string, required: boolean) =>
-    `<div class="dropzone" data-dropzone data-remove="${escapeHtml(d.dropzoneRemove)}">
+    `<div class="dropzone" data-dropzone data-remove="${escapeHtml(d.dropzoneRemove)}"${required ? ` data-required data-required-msg="${escapeHtml(d.dropzoneRequired)}"` : ""}>
       <input name="${name}" type="file" accept="image/png,image/jpeg,image/webp" multiple${required ? " required" : ""}>
       <div class="dropzone__prompt">
         <span class="dropzone__pick">${escapeHtml(d.dropzonePrompt)}</span>

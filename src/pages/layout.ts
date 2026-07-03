@@ -141,6 +141,12 @@ export function page(opts: PageOptions): string {
       const form = event.target;
       if (!(form instanceof HTMLFormElement) || !form.dataset.fetch) return;
       event.preventDefault();
+      // Required dropzones validate here (their real inputs are hidden, so the
+      // native "required" bubble can't show) — surface a visible message instead.
+      for (const zone of form.querySelectorAll('[data-dropzone][data-required]')) {
+        const zi = zone.querySelector('input[type=file]');
+        if (zi && zi.files.length === 0) { alert(zone.dataset.requiredMsg || 'required'); return; }
+      }
       const res = await fetch(form.action, {
         method: form.dataset.method || form.method || 'POST',
         body: new FormData(form),
@@ -162,6 +168,9 @@ export function page(opts: PageOptions): string {
       const previews = zone.querySelector('.dropzone__previews');
       if (!input || !previews) return;
       zone.classList.add('is-enhanced');
+      // Drop native validation on the now-hidden input; the form submit handler
+      // validates required dropzones with a visible message instead.
+      input.removeAttribute('required');
       zone.tabIndex = 0;
       const rmLabel = zone.getAttribute('data-remove') || 'Remove';
       const open = () => input.click();

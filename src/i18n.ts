@@ -111,6 +111,7 @@ export interface Dict {
   dropzoneExamplesHint: string;
   dropzoneRefsHint: string;
   dropzoneRemove: string;
+  dropzoneRequired: string;
   submitSignInTitle: string;
   submitSignInBody: string;
   submitSignInButton: string;
@@ -173,6 +174,7 @@ const zh: Dict = {
   dropzoneExamplesHint: "PNG / JPEG / WebP，1–3 张",
   dropzoneRefsHint: "PNG / JPEG / WebP，最多 4 张",
   dropzoneRemove: "移除",
+  dropzoneRequired: "请至少添加一张示例图",
   submitSignInTitle: "登录后即可投稿",
   submitSignInBody: "投稿风格需要先登录。登录后会回到投稿页，你填的内容不会丢。",
   submitSignInButton: "登录以投稿",
@@ -240,6 +242,7 @@ const en: Dict = {
   dropzoneExamplesHint: "PNG / JPEG / WebP, 1–3 images",
   dropzoneRefsHint: "PNG / JPEG / WebP, up to 4",
   dropzoneRemove: "Remove",
+  dropzoneRequired: "Please add at least one example image",
   submitSignInTitle: "Sign in to share a style",
   submitSignInBody: "Submitting a style needs a quick sign-in. You'll land back on the submit page afterwards.",
   submitSignInButton: "Sign in to submit",

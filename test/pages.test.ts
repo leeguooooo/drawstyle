@@ -135,6 +135,10 @@ describe("SSR pages", () => {
     expect(html).toContain('name="ref[]" type="file"');
     expect(html).toContain("data-dropzone");
     expect(html).toContain('class="dropzone__previews"');
+    // the examples zone is client-validated required (native required on a
+    // hidden input would silently block submit)
+    expect(html).toContain("data-required");
+    expect(html).toContain("data-required-msg");
   });
 
   it("renders fork submit form with hidden provenance and prefilled text fields", async () => {
