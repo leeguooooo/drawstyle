@@ -1,9 +1,19 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { addImage, createStyle, createUser, getStyleBySlug } from "../src/db";
+import { addImage, createStyle, createUser, getStyleBySlug, upsertUser } from "../src/db";
 import { makeStyle, makeUser } from "./helpers";
 
 describe("db", () => {
+  it("upsertUser refreshes email on re-login but preserves the chosen display_name", async () => {
+    const sub = `oidc|preserve-${crypto.randomUUID().slice(0, 8)}`;
+    const first = await upsertUser(env.DB, { oidc_sub: sub, email: "a@x.dev", display_name: "First Name" });
+    // simulate a re-login where the IdP sends no name (display_name = email)
+    const again = await upsertUser(env.DB, { oidc_sub: sub, email: "b@x.dev", display_name: "b@x.dev" });
+    expect(again.id).toBe(first.id);
+    expect(again.email).toBe("b@x.dev"); // email refreshed
+    expect(again.display_name).toBe("First Name"); // name preserved
+  });
+
   it("round-trips a user, style and image through the typed helpers", async () => {
     const user = await createUser(env.DB, {
       oidc_sub: "oidc|round-trip",

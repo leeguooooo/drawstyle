@@ -92,11 +92,14 @@ export async function upsertUser(
   const created_at = new Date().toISOString();
   const row = await db
     .prepare(
+      // On re-login, refresh email but PRESERVE display_name — a user's chosen
+      // display name must not be clobbered by whatever the IdP sends each time
+      // (account.leeguoo.com often omits the name claim, which would otherwise
+      // reset the name back to the raw email).
       `INSERT INTO drawstyle_users (oidc_sub, email, display_name, created_at)
        VALUES (?, ?, ?, ?)
        ON CONFLICT(oidc_sub) DO UPDATE SET
-         email = excluded.email,
-         display_name = excluded.display_name
+         email = excluded.email
        RETURNING id, oidc_sub, email, display_name, created_at`,
     )
     .bind(input.oidc_sub, input.email, input.display_name, created_at)
