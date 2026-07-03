@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>drawstyle built-in style seed runbook</title>
+  <style>
+    :root { --fg:#17202a; --muted:#667085; --bg:#ffffff; --panel:#f7f8fa; --border:#d9dee7; --accent:#2563eb; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; color:var(--fg); background:var(--bg); }
+    main { max-width:920px; margin:0 auto; padding:32px 20px 56px; }
+    h1 { font-size:28px; margin:0 0 8px; }
+    h2 { font-size:18px; margin:28px 0 10px; }
+    p { line-height:1.65; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { border:1px solid var(--border); padding:9px 10px; text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+    pre { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; overflow:auto; }
+    .note { border-left:4px solid var(--accent); background:var(--panel); padding:10px 12px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>drawstyle Built-in Style Seed Runbook</h1>
+  <p class="note">Use this after production deploy and OIDC admin login are working. Cloudflare commands must use <code>wrangler-accounts</code>, not bare <code>wrangler</code>.</p>
+
+  <h2>Prerequisites</h2>
+  <table>
+    <tr><th>Check</th><th>Expected</th></tr>
+    <tr><td>Admin login</td><td><code>ADMIN_EMAILS</code> contains the email returned by <code>account.leeguoo.com</code>.</td></tr>
+    <tr><td>Database</td><td>D1 binding points to shared <code>public-db</code>; tables are prefixed <code>drawstyle_</code>.</td></tr>
+    <tr><td>Assets</td><td>R2 bucket <code>drawstyle-assets</code> exists.</td></tr>
+    <tr><td>CLI repo</td><td><code>/Users/leo/github.com/chatgpt-imagegen</code> has built-in snippets and example images.</td></tr>
+  </table>
+
+  <h2>Seed Flow</h2>
+  <table>
+    <tr><th>Style</th><th>Snippet source</th><th>Example images</th><th>Category</th></tr>
+    <tr><td><code>doodle</code></td><td><code>chatgpt-imagegen</code> <code>_BUILTIN_STYLES["doodle"]</code></td><td><code>docs/styles/doodle*.png</code></td><td><code>tech-explainer</code></td></tr>
+    <tr><td><code>xiaohei</code></td><td><code>_BUILTIN_STYLES["xiaohei"]</code></td><td><code>docs/styles/xiaohei*.png</code></td><td><code>tech-explainer</code></td></tr>
+    <tr><td><code>snoopy</code></td><td><code>_BUILTIN_STYLES["snoopy"]</code></td><td><code>docs/styles/snoopy*.png</code></td><td><code>retro-comic</code></td></tr>
+  </table>
+
+  <h2>Steps</h2>
+  <ol>
+    <li>Open <code>https://drawstyle.leeguoo.com/submit</code> and log in as an admin account.</li>
+    <li>Submit each built-in style with slug/name matching the style key.</li>
+    <li>Paste the snippet from the CLI source, attach 1-3 example images, and attach any reference images that should ship to CLI pulls.</li>
+    <li>Open <code>/admin</code>, approve each submission, and verify it appears on the gallery.</li>
+    <li>Smoke-test one pull from the real CLI:</li>
+  </ol>
+  <pre>DRAWSTYLE_API=https://drawstyle.leeguoo.com chatgpt-imagegen style pull doodle --as doodle2</pre>
+</main>
+</body>
+</html>

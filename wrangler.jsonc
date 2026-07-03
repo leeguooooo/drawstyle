@@ -10,7 +10,7 @@
       // therefore shares the account-level public-db and isolates its schema
       // with drawstyle_* table/index prefixes.
       "database_name": "public-db",
-      "database_id": "TBD-at-deploy",
+      "database_id": "971aa782-e6b1-4cb1-bd32-2bc50d0f5f48",
       "migrations_dir": "migrations"
     }
   ],
@@ -23,6 +23,6 @@
   "vars": {
     "OIDC_ISSUER": "https://account.leeguoo.com",
     "OIDC_CLIENT_ID": "drawstyle-web",
-    "ADMIN_EMAILS": ""
+    "ADMIN_EMAILS": "leeguooooo@gmail.com"
   }
 }
