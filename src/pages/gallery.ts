@@ -34,7 +34,7 @@ export async function galleryPage(
     path: `/${locale}/`,
     title: d.galleryTitle,
     description: d.galleryDesc,
-    body: `<h1>${escapeHtml(d.galleryHeading)}</h1><p class="muted">${cats}</p><section class="grid">${cards.join("")}</section>`,
+    body: `<p class="eyebrow"><span class="dot"></span>${escapeHtml(d.brand)}</p><h1>${escapeHtml(d.galleryHeading)}</h1><p class="muted">${cats}</p><section class="grid">${cards.join("")}</section>`,
     user,
   });
 }
@@ -47,7 +47,7 @@ async function styleCard(
 ): Promise<string> {
   const [image] = await getImagesForStyle(db, style.id, { role: "example", pending: 0 });
   return `<article class="card">
-    ${image ? `<img src="${imageUrl(origin, image.r2_key)}" alt="">` : ""}
+    ${image ? `<img class="card-img" src="${imageUrl(origin, image.r2_key)}" alt="">` : ""}
     <h2><a href="/${locale}/s/${escapeHtml(style.slug)}">${escapeHtml(style.name)}</a></h2>
     <p><span class="badge">${escapeHtml(style.kind)}</span> <span class="badge">${escapeHtml(categoryLabel(style.category, locale))}</span></p>
     <p class="muted">♥${style.likes_count} · ⇩${style.pulls_count}</p>

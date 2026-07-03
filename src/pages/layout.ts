@@ -35,38 +35,82 @@ export function page(opts: PageOptions): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   ${buildHead({ locale, path, title, description, ogImage, jsonLd })}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Permanent+Marker&family=Noto+Sans+SC:wght@400;500;700&display=swap">
   <style>
-    :root { --fg:#17202a; --muted:#667085; --bg:#f7f8fa; --panel:#ffffff; --border:#d9dee7; --accent:#2563eb; --danger:#b42318; }
-    @media (prefers-color-scheme: dark) { :root { --fg:#edf2f7; --muted:#aab4c2; --bg:#111418; --panel:#181d24; --border:#303846; --accent:#6ea8ff; --danger:#ff8a80; } }
+    /* leeguoo.com hand-drawn design language: paper background, ink lines,
+       wobbly borders, sketch shadows. Display fonts on headings only. */
+    :root {
+      --paper:#fcfbf4; --ink:#1a1a1a; --panel:#ffffff;
+      /* --accent is the brand red for FILLS + large display text; --accent-text
+         is a darkened red that passes WCAG AA for normal-size text on paper. */
+      --accent:#ff5447; --accent-text:#d0372b; --accent-2:#3462d8; --ok:#36a85b; --danger:#c4321f;
+      --muted:#6f6d62; --muted-strong:#57564d;
+      --paper-tint:#f6f4e8; --shadow:rgba(26,26,26,.12);
+      --font-body:'Noto Sans SC',-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+      --font-display:'ZCOOL KuaiLe',"PingFang SC","Microsoft YaHei",cursive,sans-serif;
+      --font-marker:'Permanent Marker','ZCOOL KuaiLe',"PingFang SC",cursive,sans-serif;
+      --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      /* Blackboard variant: same hand, chalk-colored lines. */
+      :root {
+        --paper:#161512; --ink:#f0eee6; --panel:#211f1a;
+        --accent:#ff6a5e; --accent-text:#ff6a5e; --accent-2:#7b9ff0; --ok:#4cc177; --danger:#d0402e;
+        --muted:#a09d90; --muted-strong:#c5c2b5;
+        --paper-tint:#1c1a16; --shadow:rgba(0,0,0,.45);
+      }
+    }
     * { box-sizing: border-box; }
-    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--fg); }
-    header { border-bottom:1px solid var(--border); background:var(--panel); }
+    body { margin:0; font-family:var(--font-body); background:var(--paper); color:var(--ink); line-height:1.6; }
+    header { border-bottom:2px solid var(--ink); background:var(--panel); }
     nav { max-width:1120px; margin:0 auto; padding:14px 20px; display:flex; gap:18px; align-items:center; justify-content:space-between; }
-    nav a { color:var(--fg); text-decoration:none; font-weight:600; }
+    nav a { color:var(--ink); text-decoration:none; font-weight:600; }
+    nav a:hover { text-decoration:underline wavy var(--accent); text-underline-offset:4px; }
+    nav .brand { font-family:var(--font-marker); font-weight:400; font-size:24px; color:var(--accent); letter-spacing:.5px; }
+    nav .brand:hover { text-decoration:none; }
     nav .links { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
-    main { max-width:1120px; margin:0 auto; padding:24px 20px 56px; }
-    h1 { font-size:28px; line-height:1.2; margin:0 0 18px; }
-    h2 { font-size:18px; margin:28px 0 12px; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
-    .card { border:1px solid var(--border); background:var(--panel); border-radius:8px; padding:14px; }
+    main { max-width:1120px; margin:0 auto; padding:28px 20px 64px; }
+    h1 { font-family:var(--font-display); font-weight:400; font-size:32px; line-height:1.25; margin:0 0 18px; }
+    h2 { font-family:var(--font-display); font-weight:400; font-size:22px; margin:28px 0 12px; }
+    a { color:var(--accent-2); }
+    .eyebrow { font-family:var(--font-marker); color:var(--accent-text); font-size:14px; letter-spacing:1px; text-transform:uppercase; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+    .dot { display:inline-block; width:10px; height:10px; background:var(--ok); border-radius:55% 45% 60% 40%; filter:url(#rough); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:18px; }
+    .card { border:2px solid var(--ink); background:var(--panel); border-radius:14px 12px 15px 13px / 12px 15px 12px 14px; padding:16px; box-shadow:3px 3px 0 var(--shadow); overflow:hidden; }
+    .card:hover { box-shadow:4px 4px 0 var(--shadow); }
+    .card h2 { margin:10px 0 8px; font-size:20px; }
+    .card h2 a { color:var(--ink); text-decoration:none; }
+    .card h2 a:hover { text-decoration:underline wavy var(--accent); text-underline-offset:4px; }
+    .card p { margin:6px 0; }
+    .card pre { font-size:12px; margin:10px 0 0; }
+    .card-img { display:block; width:calc(100% + 32px); max-width:none; margin:-16px -16px 4px; border:0; border-bottom:2px solid var(--ink); border-radius:12px 11px 0 0 / 11px 13px 0 0; aspect-ratio:4/3; object-fit:cover; background:var(--paper-tint); }
     .muted { color:var(--muted); }
-    .badge { display:inline-block; border:1px solid var(--border); border-radius:999px; padding:2px 8px; color:var(--muted); font-size:12px; }
-    img { max-width:100%; border-radius:6px; border:1px solid var(--border); }
-    pre { overflow:auto; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; }
-    label { display:block; font-weight:600; margin:12px 0 6px; }
-    input, textarea, select { width:100%; border:1px solid var(--border); border-radius:6px; padding:9px 10px; background:var(--panel); color:var(--fg); }
+    .badge { display:inline-block; font-family:var(--font-marker); font-size:12px; letter-spacing:.5px; border:2px solid var(--ink); border-radius:10px 12px 11px 13px / 13px 10px 12px 11px; padding:1px 9px; color:var(--ink); background:var(--panel); text-decoration:none; }
+    a.badge:hover { color:var(--accent-text); border-color:var(--accent); text-decoration:none; }
+    img { max-width:100%; border:2px solid var(--ink); border-radius:13px 11px 14px 12px / 12px 14px 11px 13px; background:var(--panel); }
+    pre { overflow:auto; font-family:var(--font-mono); font-size:13px; background:var(--paper-tint); border:2px solid var(--ink); border-radius:12px 14px 11px 13px / 14px 11px 13px 12px; padding:12px 14px; }
+    code { font-family:var(--font-mono); }
+    label { display:block; font-weight:600; margin:14px 0 6px; }
+    input, textarea, select { width:100%; font-family:var(--font-body); font-size:15px; border:2px solid var(--ink); border-radius:11px 13px 12px 14px / 13px 11px 14px 12px; padding:9px 12px; background:var(--panel); color:var(--ink); }
+    input:focus, textarea:focus, select:focus { border-color:var(--accent-2); outline:none; box-shadow:2px 2px 0 var(--shadow); }
     textarea { min-height:120px; }
-    button, .button { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px solid var(--accent); color:white; background:var(--accent); border-radius:6px; padding:8px 12px; cursor:pointer; text-decoration:none; font-weight:600; }
-    button.secondary, .button.secondary { color:var(--fg); background:transparent; border-color:var(--border); }
-    button.danger { background:var(--danger); border-color:var(--danger); }
+    button, .button { display:inline-flex; align-items:center; justify-content:center; gap:6px; font-family:var(--font-body); font-size:15px; font-weight:700; border:2px solid var(--ink); color:#1a1a1a; background:var(--accent); border-radius:12px 14px 12px 15px / 14px 12px 15px 12px; padding:8px 16px; cursor:pointer; text-decoration:none; box-shadow:2px 2px 0 var(--shadow); }
+    button:active, .button:active { transform:translate(2px,2px); box-shadow:none; }
+    button.secondary, .button.secondary { color:var(--ink); background:var(--panel); }
+    button.secondary:hover, .button.secondary:hover { background:var(--paper-tint); }
+    button.danger { background:var(--danger); border-color:var(--ink); color:#fff; }
+    a:focus-visible, button:focus-visible, .button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline:3px solid var(--accent-2); outline-offset:2px; }
     form { margin:0; }
   </style>
   <script src="https://blog.leeguoo.com/scripts/visitor-beacon.js" defer></script>
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="2"/></filter></svg>
   <header>
     <nav>
-      <a href="${home}">${escapeHtml(d.brand)}</a>
+      <a class="brand" href="${home}">${escapeHtml(d.brand)}</a>
       <div class="links">
         <a href="/${locale}/submit">${escapeHtml(d.navSubmit)}</a>
         <a href="/${locale}/me">${escapeHtml(d.navMe)}</a>
