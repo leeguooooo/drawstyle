@@ -259,6 +259,9 @@ describe("SSR pages", () => {
     expect(html).toContain("love this style!");
     expect(html).toContain("评论 (1)");
     expect(html).toMatch(/data-action="\/api\/comments\/\d+" data-method="DELETE"/);
+    // the post form must use data-fetch="1" (bare data-fetch is falsy → the
+    // client handler skips it → native POST without the CSRF header fails)
+    expect(html).toContain('data-fetch="1"');
 
     // anonymous sees the comment but a sign-in link instead of a post form
     html = await (await app.request(`/zh/s/${style.slug}`, {}, env)).text();

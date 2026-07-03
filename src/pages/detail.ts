@@ -68,7 +68,7 @@ export async function detailPage(
         .join("")
     : `<li class="muted">${escapeHtml(d.commentEmpty)}</li>`;
   const commentForm = user
-    ? `<form action="/api/styles/${escapeHtml(style.slug)}/comments" method="post" data-fetch data-method="POST" data-done="${canonicalPath}#comments">
+    ? `<form action="/api/styles/${escapeHtml(style.slug)}/comments" method="post" data-fetch="1" data-method="POST" data-done="${canonicalPath}#comments">
         <textarea name="body" required maxlength="1000" placeholder="${escapeHtml(d.commentPlaceholder)}"></textarea>
         <p><button type="submit">${escapeHtml(d.commentSubmit)}</button></p>
       </form>`
