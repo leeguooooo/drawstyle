@@ -28,6 +28,7 @@ const NAV: NavGroup[] = [
       { slug: "generate", title: "生成图片", ico: "✦" },
       { slug: "styles", title: "风格系统", ico: "✎" },
       { slug: "community", title: "用画廊的风格", ico: "☁" },
+      { slug: "backends", title: "后端与排错", ico: "⚙" },
     ],
   },
   {
@@ -172,11 +173,19 @@ const PAGES: Record<string, DocPage> = {
         "尺寸",
         `常用 <code>1024x1024</code>(方)、<code>1536x1024</code>(横)、<code>1024x1536</code>(竖)。一次最多附 4 张参考图。`,
       ) +
+      `<h2>图生图(改图)</h2>` +
+      `<p>用 <code>-i</code> / <code>--ref</code> 传一张参考图,就变成<b>改图</b>而不是从文字生成——等同于把图拖进 ChatGPT 对话框让它改风格。两个后端都支持,参考图可以是本地路径或 <code>http(s)</code> URL,重复 <code>-i</code> 传多张。</p>` +
+      code("terminal", [
+        '$ chatgpt-imagegen "改成暖调黄昏、电影感 35mm" -i photo.jpg -o out.png',
+      ]) +
+      `<h2>常用参数</h2>` +
+      `<p><code>--backend auto|web|codex</code> · <code>-o PATH</code> 输出路径 · <code>--size</code> · <code>--format png|jpeg|webp</code> · <code>-i/--ref</code> 参考图 · <code>--style NAME</code> 套用风格 · <code>--quiet</code> 只打印路径(便于管道)。完整列表:<code>chatgpt-imagegen --help</code>。</p>` +
       divider +
       `<h2>接下来</h2>` +
       cards([
         { href: "/docs/styles", title: "风格系统", ico: "✎", body: "把画风钉一次,反复用。" },
         { href: "/docs/community", title: "用画廊的风格", ico: "☁", body: "直接用别人调好的画风。" },
+        { href: "/docs/backends", title: "后端与排错", ico: "⚙", body: "web/codex 与常见问题。" },
       ]),
   },
 
@@ -247,6 +256,35 @@ const PAGES: Record<string, DocPage> = {
       cards([
         { href: "/docs/submit", title: "投稿画风", ico: "✉", body: "把好风格分享到画廊。" },
         { href: "/docs/platform", title: "平台是什么", ico: "❖", body: "了解 drawstyle。" },
+      ]),
+  },
+
+  backends: {
+    title: "后端与排错",
+    eyebrow: "命令行工具",
+    body:
+      lede(
+        `同一个订阅有两个计量桶,生图走哪个取决于图<b>在哪生成</b>。默认 <code>auto</code> 优先省 Codex 用量。`,
+      ) +
+      `<h2>两个后端</h2>` +
+      `<ul>` +
+      `<li><b>web</b>(默认,不花 Codex 用量)——驱动你登录着的 ChatGPT 浏览器,像普通对话一样生图、事后删除。需要一个登录态 Chrome + <a href="https://github.com/leeguooooo/chrome-use">chrome-use</a>。</li>` +
+      `<li><b>codex</b>(兜底,计 Codex 用量)——无浏览器,直接 POST 到 Codex 接口。需要 <code>codex login</code>。</li>` +
+      `</ul>` +
+      `<p><code>auto</code> 有登录浏览器就用 web、否则回落 codex——笔记本开着 Chrome 走 web,无头服务器走 codex,自动切换。也可 <code>--backend web/codex</code> 强制。</p>` +
+      callout(
+        "warn",
+        "「已登录却说没有可用浏览器」",
+        `先跑 <code>chatgpt-imagegen doctor</code> 看哪个后端就绪。web 够到浏览器有两条路:<b>relay</b>(你已开着的 Chrome,需装 chrome-use 扩展并连接)和<b>profile 启动</b>(复制登录态另开窗口)。修法:①<code>chrome-use extension install</code> 装扩展连 relay(最佳,不花 Codex 用量);②完全退出 Chrome 再重跑;③<code>--backend codex</code> 无头兜底。`,
+      ) +
+      `<h2>并发</h2>` +
+      `<p>web <b>串行</b>(1 张,共享同一个 Chrome、页面限流严);codex 最多 <b>4</b> 并行。多发安全——超出的排队,<code>--timeout</code> 从拿到槽位才开始算。配额和 ChatGPT app 共享,别持续 &gt;10 张/分钟。</p>` +
+      `<h2>什么时候别用这个工具</h2>` +
+      `<p>需要真正的 <code>quality=high</code>、原生透明背景、可传给客户的<b>按次计费</b>、对外<b>公开服务</b>(用个人订阅供公开服务违反 OpenAI ToS)、或持续高频批量时——请改用官方 <code>/v1/images/generations</code> API(带 <code>OPENAI_API_KEY</code>)。</p>` +
+      divider +
+      cards([
+        { href: "/docs/install", title: "安装", ico: "⤓", body: "装好两个后端之一。" },
+        { href: "https://blog.leeguoo.com/zh/posts/chatgpt-imagegen/", title: "原理深入(博客)", ico: "✦", body: "web/codex 流程、Turnstile 门。" },
       ]),
   },
 
