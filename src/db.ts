@@ -775,6 +775,20 @@ export async function likeStyle(
   ]);
 }
 
+export async function hasLiked(
+  db: D1Database,
+  userId: number,
+  styleId: number,
+): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT 1 FROM drawstyle_likes WHERE user_id = ? AND style_id = ? LIMIT 1`,
+    )
+    .bind(userId, styleId)
+    .first();
+  return row !== null;
+}
+
 export async function unlikeStyle(
   db: D1Database,
   userId: number,

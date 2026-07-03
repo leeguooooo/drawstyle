@@ -4,6 +4,7 @@ import {
   getImagesForStyle,
   getTagsForStyle,
   getUserById,
+  hasLiked,
   type UserRow,
 } from "../db";
 import { SITE_URL } from "../config";
@@ -39,6 +40,14 @@ export async function detailPage(
     images.find((image) => image.role === "example") ?? images[0];
   const ogImage = firstExample ? absImage(firstExample.r2_key) : undefined;
   const canonicalPath = `/${locale}/s/${style.slug}`;
+  // Like button reflects the viewer's state and toggles: DELETE when already
+  // liked, POST otherwise; anonymous viewers get a link to sign in.
+  const liked = user ? await hasLiked(db, user.id, style.id) : false;
+  const likeControl = !user
+    ? `<a class="button" href="/auth/login?return_to=${encodeURIComponent(canonicalPath)}">${escapeHtml(d.like)}</a>`
+    : liked
+      ? `<button class="secondary" data-action="/api/styles/${escapeHtml(style.slug)}/like" data-method="DELETE">${escapeHtml(d.unlike)}</button>`
+      : `<button data-action="/api/styles/${escapeHtml(style.slug)}/like">${escapeHtml(d.like)}</button>`;
   const ownerTools = user?.id === style.owner_user_id
     ? `<p><a class="button secondary" href="/${locale}/submit?edit=${escapeHtml(style.slug)}">${escapeHtml(d.edit)}</a></p>`
     : "";
@@ -67,7 +76,7 @@ export async function detailPage(
     <h2>${escapeHtml(d.snippetHeading)}</h2><pre>${escapeHtml(style.snippet)}</pre>
     <h2>${escapeHtml(d.cliHeading)}</h2><pre>chatgpt-imagegen style pull ${escapeHtml(style.slug)}</pre>
     <p>
-      <button data-action="/api/styles/${escapeHtml(style.slug)}/like">${escapeHtml(d.like)}</button>
+      ${likeControl}
       <a class="button secondary" href="/${locale}/submit?fork=${escapeHtml(style.slug)}">${escapeHtml(d.fork)}</a>
     </p>
     <p class="muted">${escapeHtml(d.versionLabel(style.version))} · ♥${style.likes_count} · ⇩${style.pulls_count}</p>

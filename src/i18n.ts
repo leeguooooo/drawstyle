@@ -90,6 +90,7 @@ export interface Dict {
   snippetHeading: string;
   cliHeading: string;
   like: string;
+  unlike: string;
   fork: string;
   edit: string;
   versionLabel: (n: number) => string;
@@ -153,6 +154,7 @@ const zh: Dict = {
   snippetHeading: "Prompt 片段",
   cliHeading: "命令行",
   like: "喜欢",
+  unlike: "取消喜欢",
   fork: "复刻",
   edit: "编辑",
   versionLabel: (n) => `版本 ${n}`,
@@ -221,6 +223,7 @@ const en: Dict = {
   snippetHeading: "Prompt snippet",
   cliHeading: "CLI",
   like: "Like",
+  unlike: "Liked ✓",
   fork: "Fork",
   edit: "Edit",
   versionLabel: (n) => `version ${n}`,

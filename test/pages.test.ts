@@ -106,8 +106,9 @@ describe("SSR pages", () => {
   it("renders style detail with snippet, pull command, and like/fork controls", async () => {
     const owner = await makeUser();
     const style = await approvedStyle(owner.id, { name: "Detail Style" });
+    const { cookie } = await cookieFor();
 
-    const res = await app.request(`/zh/s/${style.slug}`, {}, env);
+    const res = await app.request(`/zh/s/${style.slug}`, { headers: { Cookie: cookie } }, env);
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("Detail Style");
@@ -115,6 +116,29 @@ describe("SSR pages", () => {
     expect(html).toContain(`chatgpt-imagegen style pull ${style.slug}`);
     expect(html).toContain(`/api/styles/${style.slug}/like`);
     expect(html).toContain(`/zh/submit?fork=${style.slug}`);
+  });
+
+  it("like button toggles: POST when not liked, DELETE when already liked; anonymous gets a login link", async () => {
+    const owner = await makeUser();
+    const style = await approvedStyle(owner.id, { name: "Toggle Style" });
+    const { user, cookie } = await cookieFor();
+
+    // not liked yet → POST (default method, no data-method=DELETE)
+    let html = await (await app.request(`/zh/s/${style.slug}`, { headers: { Cookie: cookie } }, env)).text();
+    expect(html).toContain(`data-action="/api/styles/${style.slug}/like"`);
+    expect(html).not.toContain('data-method="DELETE"');
+    expect(html).toContain("喜欢");
+
+    // after liking → the button becomes a DELETE (unlike) control
+    await likeStyle(env.DB, user.id, style.id);
+    html = await (await app.request(`/zh/s/${style.slug}`, { headers: { Cookie: cookie } }, env)).text();
+    expect(html).toContain('data-method="DELETE"');
+    expect(html).toContain("取消喜欢");
+
+    // anonymous → a sign-in link, not a like action
+    html = await (await app.request(`/zh/s/${style.slug}`, {}, env)).text();
+    expect(html).not.toContain(`data-action="/api/styles/${style.slug}/like"`);
+    expect(html).toContain(`/auth/login?return_to=${encodeURIComponent(`/zh/s/${style.slug}`)}`);
   });
 
   it("shows anonymous submit users a friendly sign-in card (not a bare redirect)", async () => {
