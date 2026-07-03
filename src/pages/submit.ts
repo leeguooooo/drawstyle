@@ -8,6 +8,24 @@ import {
 import { t, type Locale } from "../i18n";
 import { escapeHtml, page } from "./layout";
 
+// Shown to anonymous visitors instead of a hard redirect to a bare login page.
+// The login button carries return_to so they land back here after signing in.
+export function submitSignInGate(locale: Locale): string {
+  const d = t(locale);
+  const loginHref = `/auth/login?return_to=${encodeURIComponent(`/${locale}/submit`)}`;
+  return page({
+    locale,
+    path: `/${locale}/submit`,
+    title: d.submitTitle,
+    description: d.submitDesc,
+    body: `<section class="card signin-gate">
+      <h1>${escapeHtml(d.submitSignInTitle)}</h1>
+      <p class="muted">${escapeHtml(d.submitSignInBody)}</p>
+      <p><a class="button" href="${loginHref}">${escapeHtml(d.submitSignInButton)}</a></p>
+    </section>`,
+  });
+}
+
 export async function submitPage(
   db: D1Database,
   locale: Locale,
@@ -25,6 +43,18 @@ export async function submitPage(
   // Prefill existing tags so a snippet-only edit re-submits them unchanged
   // (the API additionally treats an absent tag field as "unchanged").
   const tags = source ? await getTagsForStyle(db, source.id) : [];
+  // Hand-drawn dropzone wrapping a real <input type=file> (kept in the DOM so
+  // FormData still reads it). layout.ts progressively enhances [data-dropzone]
+  // into a drag area with thumbnail previews; with JS off the raw input works.
+  const dropzone = (name: string, hint: string, required: boolean) =>
+    `<div class="dropzone" data-dropzone data-remove="${escapeHtml(d.dropzoneRemove)}">
+      <input name="${name}" type="file" accept="image/png,image/jpeg,image/webp" multiple${required ? " required" : ""}>
+      <div class="dropzone__prompt">
+        <span class="dropzone__pick">${escapeHtml(d.dropzonePrompt)}</span>
+        <span class="dropzone__hint muted">${escapeHtml(hint)}</span>
+      </div>
+      <div class="dropzone__previews" hidden></div>
+    </div>`;
   return page({
     locale,
     path: `/${locale}/submit`,
@@ -40,8 +70,8 @@ export async function submitPage(
       <label>${escapeHtml(d.fieldCategory)}</label><select name="category">${CATEGORIES.map((cat) => `<option value="${cat.key}" ${cat.key === category ? "selected" : ""}>${escapeHtml(categoryLabel(cat.key, locale))}</option>`).join("")}</select>
       <label>${escapeHtml(d.fieldTags)}</label><input name="tag" value="${escapeHtml(tags.join(" "))}" placeholder="watercolor">
       <label>${escapeHtml(d.fieldSnippet)}</label><textarea name="snippet">${escapeHtml(source?.snippet ?? "")}</textarea>
-      ${isEdit ? "" : `<label>${escapeHtml(d.fieldExamples)}</label><input name="example[]" type="file" multiple required>`}
-      <label>${escapeHtml(d.fieldReferences)}</label><input name="ref[]" type="file" multiple>
+      ${isEdit ? "" : `<label>${escapeHtml(d.fieldExamples)}</label>${dropzone("example[]", d.dropzoneExamplesHint, true)}`}
+      <label>${escapeHtml(d.fieldReferences)}</label>${dropzone("ref[]", d.dropzoneRefsHint, false)}
       ${isEdit ? `<p class="muted">${escapeHtml(d.refsKeepHint)}</p>` : ""}
       <p><button>${escapeHtml(d.submitButton)}</button></p>
     </form>`,

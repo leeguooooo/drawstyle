@@ -70,7 +70,7 @@ function constantTimeEqual(a: string, b: string): boolean {
 }
 
 async function signTx(
-  payload: { state: string; verifier: string; exp: number },
+  payload: { state: string; verifier: string; exp: number; return_to?: string },
   env: Env,
 ): Promise<string> {
   const encoded = base64Url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -80,7 +80,7 @@ async function signTx(
 async function verifyTx(
   cookie: string | undefined,
   env: Env,
-): Promise<{ state: string; verifier: string; exp: number } | null> {
+): Promise<{ state: string; verifier: string; exp: number; return_to?: string } | null> {
   if (!cookie) {
     return null;
   }
@@ -94,7 +94,7 @@ async function verifyTx(
   }
   const parsed = JSON.parse(
     new TextDecoder().decode(bytesFromBase64Url(encoded)),
-  ) as { state?: unknown; verifier?: unknown; exp?: unknown };
+  ) as { state?: unknown; verifier?: unknown; exp?: unknown; return_to?: unknown };
   if (
     typeof parsed.state !== "string" ||
     typeof parsed.verifier !== "string" ||
@@ -103,7 +103,8 @@ async function verifyTx(
   ) {
     return null;
   }
-  return { state: parsed.state, verifier: parsed.verifier, exp: parsed.exp };
+  const return_to = typeof parsed.return_to === "string" ? parsed.return_to : undefined;
+  return { state: parsed.state, verifier: parsed.verifier, exp: parsed.exp, return_to };
 }
 
 async function discovery(env: Env): Promise<{
@@ -135,6 +136,9 @@ function redirectUri(requestUrl: string): string {
 oidcRoutes.get("/login", async (c) => {
   const state = base64Url(crypto.getRandomValues(new Uint8Array(24)));
   const verifier = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+  // Only same-site paths (start with a single "/") — never "//host" or absolute.
+  const rawReturn = c.req.query("return_to") ?? "";
+  const returnTo = /^\/(?!\/)/.test(rawReturn) ? rawReturn : undefined;
   const endpoints = await discovery(c.env);
   const params = new URLSearchParams({
     response_type: "code",
@@ -153,6 +157,7 @@ oidcRoutes.get("/login", async (c) => {
         state,
         verifier,
         exp: Math.floor(Date.now() / 1000) + TX_TTL_SECONDS,
+        return_to: returnTo,
       },
       c.env,
     ),
@@ -215,7 +220,9 @@ oidcRoutes.get("/callback", async (c) => {
     maxAge: 30 * 24 * 60 * 60,
     path: "/",
   });
-  return c.redirect("/");
+  // Re-validate the stored return path before trusting it (defence in depth).
+  const dest = tx.return_to && /^\/(?!\/)/.test(tx.return_to) ? tx.return_to : "/";
+  return c.redirect(dest);
 });
 
 // POST + custom header: logout is a session-cookie state change, so it gets

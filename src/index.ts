@@ -11,7 +11,7 @@ import { adminPage } from "./pages/admin";
 import { detailPage } from "./pages/detail";
 import { galleryPage } from "./pages/gallery";
 import { mePage } from "./pages/me";
-import { submitPage } from "./pages/submit";
+import { submitPage, submitSignInGate } from "./pages/submit";
 import { seoRoutes } from "./seo";
 
 export const LANG_COOKIE_NAME = "lang";
@@ -133,7 +133,7 @@ for (const locale of LOCALES) {
 
   app.get(`/${locale}/submit`, authOptional, async (c) => {
     if (!c.var.user) {
-      return c.redirect("/auth/login");
+      return c.html(submitSignInGate(locale));
     }
     return c.html(
       await submitPage(

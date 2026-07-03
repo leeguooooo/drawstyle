@@ -117,10 +117,24 @@ describe("SSR pages", () => {
     expect(html).toContain(`/zh/submit?fork=${style.slug}`);
   });
 
-  it("redirects anonymous submit users to login", async () => {
+  it("shows anonymous submit users a friendly sign-in card (not a bare redirect)", async () => {
     const res = await app.request("/zh/submit", {}, env);
-    expect(res.status).toBe(302);
-    expect(res.headers.get("Location")).toBe("/auth/login");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("登录后即可投稿");
+    // login button carries a same-site return_to back to the submit page
+    expect(html).toContain(`/auth/login?return_to=${encodeURIComponent("/zh/submit")}`);
+  });
+
+  it("submit form wraps file inputs in dropzones while keeping the real inputs", async () => {
+    const { cookie } = await cookieFor();
+    const res = await app.request("/zh/submit", { headers: { Cookie: cookie } }, env);
+    const html = await res.text();
+    // real inputs preserved (FormData reads them) AND wrapped for enhancement
+    expect(html).toContain('name="example[]" type="file"');
+    expect(html).toContain('name="ref[]" type="file"');
+    expect(html).toContain("data-dropzone");
+    expect(html).toContain('class="dropzone__previews"');
   });
 
   it("renders fork submit form with hidden provenance and prefilled text fields", async () => {

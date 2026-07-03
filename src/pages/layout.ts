@@ -103,6 +103,21 @@ export function page(opts: PageOptions): string {
     button.danger { background:var(--danger); border-color:var(--ink); color:#fff; }
     a:focus-visible, button:focus-visible, .button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline:3px solid var(--accent-2); outline-offset:2px; }
     form { margin:0; }
+    .signin-gate { max-width:460px; margin:40px auto; text-align:center; }
+    .signin-gate h1 { margin-top:0; }
+    /* hand-drawn file dropzone (progressively enhanced from a raw file input) */
+    .dropzone { position:relative; border:2px dashed var(--ink); border-radius:14px 12px 15px 13px / 12px 15px 12px 14px; background:var(--paper-tint); padding:18px; cursor:pointer; transition:background .12s, border-color .12s; }
+    .dropzone.is-enhanced input[type=file] { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .dropzone.is-over { border-color:var(--accent-2); background:var(--panel); }
+    .dropzone__prompt { display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center; pointer-events:none; }
+    .dropzone__pick { font-family:var(--font-marker); font-size:16px; color:var(--accent-text); }
+    .dropzone__hint { font-size:13px; }
+    .dropzone__previews { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    .dropzone__previews:not([hidden]) + .dropzone__prompt, .dropzone.has-files .dropzone__prompt { font-size:13px; }
+    .dropzone__thumb { position:relative; width:84px; }
+    .dropzone__thumb img { width:84px; height:84px; object-fit:cover; border:2px solid var(--ink); border-radius:10px 12px 11px 13px / 12px 10px 13px 11px; display:block; }
+    .dropzone__name { display:block; font-size:11px; color:var(--muted); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dropzone__rm { position:absolute; top:-8px; right:-8px; width:22px; height:22px; padding:0; border-radius:50%; background:var(--danger); border:2px solid var(--ink); color:#fff; font-size:13px; line-height:1; box-shadow:none; }
   </style>
   <script src="https://blog.leeguoo.com/scripts/visitor-beacon.js" defer></script>
 </head>
@@ -141,6 +156,46 @@ export function page(opts: PageOptions): string {
       const res = await fetch(button.dataset.action, {method: button.dataset.method || 'POST', headers:{'X-Requested-With':'drawstyle'}});
       if (res.ok) location.reload();
       else alert((await res.text()).slice(0, 500));
+    });
+    document.querySelectorAll('[data-dropzone]').forEach((zone) => {
+      const input = zone.querySelector('input[type=file]');
+      const previews = zone.querySelector('.dropzone__previews');
+      if (!input || !previews) return;
+      zone.classList.add('is-enhanced');
+      zone.tabIndex = 0;
+      const rmLabel = zone.getAttribute('data-remove') || 'Remove';
+      const open = () => input.click();
+      zone.addEventListener('click', (e) => { if (!e.target.closest('.dropzone__rm')) open(); });
+      zone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+      ['dragover','dragenter'].forEach((t) => zone.addEventListener(t, (e) => { e.preventDefault(); zone.classList.add('is-over'); }));
+      ['dragleave','drop'].forEach((t) => zone.addEventListener(t, () => zone.classList.remove('is-over')));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const dt = new DataTransfer();
+        [...input.files, ...e.dataTransfer.files].filter((f) => f.type.startsWith('image/')).forEach((f) => dt.items.add(f));
+        input.files = dt.files; render();
+      });
+      input.addEventListener('change', render);
+      function render() {
+        previews.innerHTML = '';
+        const files = [...input.files];
+        previews.hidden = files.length === 0;
+        zone.classList.toggle('has-files', files.length > 0);
+        files.forEach((file, i) => {
+          const url = URL.createObjectURL(file);
+          const t = document.createElement('div');
+          t.className = 'dropzone__thumb';
+          const img = document.createElement('img'); img.src = url; img.alt = ''; img.onload = () => URL.revokeObjectURL(url);
+          const nm = document.createElement('span'); nm.className = 'dropzone__name'; nm.textContent = file.name;
+          const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'dropzone__rm'; rm.textContent = '✕'; rm.title = rmLabel; rm.setAttribute('aria-label', rmLabel);
+          rm.addEventListener('click', () => {
+            const dt = new DataTransfer();
+            [...input.files].filter((_, j) => j !== i).forEach((f) => dt.items.add(f));
+            input.files = dt.files; render();
+          });
+          t.append(img, nm, rm); previews.append(t);
+        });
+      }
     });
   </script>
 </body>

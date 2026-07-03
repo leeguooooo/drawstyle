@@ -107,6 +107,13 @@ export interface Dict {
   fieldExamples: string;
   fieldReferences: string;
   refsKeepHint: string;
+  dropzonePrompt: string;
+  dropzoneExamplesHint: string;
+  dropzoneRefsHint: string;
+  dropzoneRemove: string;
+  submitSignInTitle: string;
+  submitSignInBody: string;
+  submitSignInButton: string;
   submitButton: string;
 
   meTitle: string;
@@ -162,6 +169,13 @@ const zh: Dict = {
   fieldExamples: "示例图",
   fieldReferences: "参考图",
   refsKeepHint: "留空表示保留现有参考图",
+  dropzonePrompt: "拖图到这里，或点击选择",
+  dropzoneExamplesHint: "PNG / JPEG / WebP，1–3 张",
+  dropzoneRefsHint: "PNG / JPEG / WebP，最多 4 张",
+  dropzoneRemove: "移除",
+  submitSignInTitle: "登录后即可投稿",
+  submitSignInBody: "投稿风格需要先登录。登录后会回到投稿页，你填的内容不会丢。",
+  submitSignInButton: "登录以投稿",
   submitButton: "提交",
 
   meTitle: "我的",
@@ -222,6 +236,13 @@ const en: Dict = {
   fieldExamples: "Examples",
   fieldReferences: "References",
   refsKeepHint: "Leave empty to keep the existing reference images",
+  dropzonePrompt: "Drop images here, or click to choose",
+  dropzoneExamplesHint: "PNG / JPEG / WebP, 1–3 images",
+  dropzoneRefsHint: "PNG / JPEG / WebP, up to 4",
+  dropzoneRemove: "Remove",
+  submitSignInTitle: "Sign in to share a style",
+  submitSignInBody: "Submitting a style needs a quick sign-in. You'll land back on the submit page afterwards.",
+  submitSignInButton: "Sign in to submit",
   submitButton: "Submit",
 
   meTitle: "Mine",

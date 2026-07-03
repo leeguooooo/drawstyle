@@ -157,6 +157,39 @@ describe("web OIDC login", () => {
     });
   });
 
+  it("returns to a same-site return_to after login, and ignores an off-site one", async () => {
+    await installOidcStubs();
+    // same-site path is honored
+    const login = await app.request(
+      `https://drawstyle.leeguoo.com/auth/login?return_to=${encodeURIComponent("/zh/submit")}`,
+      {},
+      env,
+    );
+    const loc = new URL(login.headers.get("Location") ?? "");
+    const txCookie = cookieValue(login.headers.get("Set-Cookie") ?? "", "oidc_tx");
+    const cb = await app.request(
+      `https://drawstyle.leeguoo.com/auth/callback?code=ok&state=${loc.searchParams.get("state")}`,
+      { headers: { Cookie: txCookie } },
+      env,
+    );
+    expect(cb.headers.get("Location")).toBe("/zh/submit");
+
+    // protocol-relative / off-site target is rejected → falls back to "/"
+    const login2 = await app.request(
+      `https://drawstyle.leeguoo.com/auth/login?return_to=${encodeURIComponent("//evil.example/x")}`,
+      {},
+      env,
+    );
+    const loc2 = new URL(login2.headers.get("Location") ?? "");
+    const tx2 = cookieValue(login2.headers.get("Set-Cookie") ?? "", "oidc_tx");
+    const cb2 = await app.request(
+      `https://drawstyle.leeguoo.com/auth/callback?code=ok&state=${loc2.searchParams.get("state")}`,
+      { headers: { Cookie: tx2 } },
+      env,
+    );
+    expect(cb2.headers.get("Location")).toBe("/");
+  });
+
   it("rejects mismatched state", async () => {
     await installOidcStubs();
     const login = await app.request("https://drawstyle.leeguoo.com/auth/login", {}, env);
