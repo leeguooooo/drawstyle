@@ -96,12 +96,13 @@ export async function detailPage(
     jsonLd,
     user,
     body: `<h1>${escapeHtml(style.name)}</h1>
+    <p class="muted">${escapeHtml(d.authorLabel)} <b>${escapeHtml(owner?.display_name ?? "drawstyle")}</b></p>
     <p><span class="badge">${escapeHtml(style.kind)}</span> <span class="badge">${escapeHtml(categoryLabel(style.category, locale))}</span> ${tags.map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join(" ")}</p>
     <div class="grid">${imgs}</div>
     <h2>${escapeHtml(d.snippetHeading)}</h2><pre>${escapeHtml(style.snippet)}</pre>
     <h2>${escapeHtml(d.cliHeading)}</h2>
     <p class="muted">${escapeHtml(d.cliOnlineHint)}</p>
-    <div class="cmd"><pre>chatgpt-imagegen "…" --style-online ${escapeHtml(style.slug)}</pre><button type="button" class="secondary copy" data-copy='chatgpt-imagegen "…" --style-online ${escapeHtml(style.slug)}' data-copied="${escapeHtml(d.copied)}">${escapeHtml(d.copy)}</button></div>
+    <div class="cmd"><pre>chatgpt-imagegen "${escapeHtml(d.promptPlaceholder)}" --style-online ${escapeHtml(style.slug)}</pre><button type="button" class="secondary copy" data-copy='chatgpt-imagegen "${escapeHtml(d.promptPlaceholder)}" --style-online ${escapeHtml(style.slug)}' data-copied="${escapeHtml(d.copied)}">${escapeHtml(d.copy)}</button></div>
     <p class="muted">${escapeHtml(d.cliPullHint)}</p>
     <div class="cmd"><pre>chatgpt-imagegen style pull ${escapeHtml(style.slug)}</pre><button type="button" class="secondary copy" data-copy="chatgpt-imagegen style pull ${escapeHtml(style.slug)}" data-copied="${escapeHtml(d.copied)}">${escapeHtml(d.copy)}</button></div>
     <p>

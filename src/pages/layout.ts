@@ -84,7 +84,7 @@ export function page(opts: PageOptions): string {
     .card-img { display:block; width:calc(100% + 2*var(--card-pad)); max-width:none; margin:calc(-1*var(--card-pad)) calc(-1*var(--card-pad)) 4px; border:0; border-bottom:2px solid var(--ink); border-radius:0; aspect-ratio:4/3; object-fit:contain; background:var(--paper-tint); cursor:zoom-in; }
     /* copyable command row: the command text + a copy button */
     .cmd { display:flex; align-items:stretch; gap:8px; margin:10px 0 0; }
-    .cmd pre { flex:1; margin:0; }
+    .cmd pre { flex:1; min-width:0; margin:0; white-space:pre; overflow-x:auto; }
     .cmd .copy { flex:none; font-family:var(--font-marker); font-size:12px; padding:0 12px; }
     /* image lightbox */
     .lightbox { position:fixed; inset:0; background:rgba(26,26,26,.82); display:flex; align-items:center; justify-content:center; padding:24px; z-index:50; cursor:zoom-out; }
@@ -102,7 +102,7 @@ export function page(opts: PageOptions): string {
     .badge { display:inline-block; font-family:var(--font-marker); font-size:12px; letter-spacing:.5px; border:2px solid var(--ink); border-radius:10px 12px 11px 13px / 13px 10px 12px 11px; padding:1px 9px; color:var(--ink); background:var(--panel); text-decoration:none; }
     a.badge:hover { color:var(--accent-text); border-color:var(--accent); text-decoration:none; }
     img { max-width:100%; border:2px solid var(--ink); border-radius:13px 11px 14px 12px / 12px 14px 11px 13px; background:var(--panel); }
-    pre { overflow:auto; font-family:var(--font-mono); font-size:13px; background:var(--paper-tint); border:2px solid var(--ink); border-radius:12px 14px 11px 13px / 14px 11px 13px 12px; padding:12px 14px; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; font-family:var(--font-mono); font-size:13px; background:var(--paper-tint); border:2px solid var(--ink); border-radius:12px 14px 11px 13px / 14px 11px 13px 12px; padding:12px 14px; }
     code { font-family:var(--font-mono); }
     label { display:block; font-weight:600; margin:14px 0 6px; }
     input, textarea, select { width:100%; font-family:var(--font-body); font-size:15px; border:2px solid var(--ink); border-radius:11px 13px 12px 14px / 13px 11px 14px 12px; padding:9px 12px; background:var(--panel); color:var(--ink); }
