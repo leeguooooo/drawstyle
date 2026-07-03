@@ -6,8 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "deploy": "wrangler-accounts deploy",
+    "dev": "wrangler-accounts dev"
   },
   "keywords": [],
   "author": "",
