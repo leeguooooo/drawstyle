@@ -42,7 +42,7 @@ async function makeReadStyle(
   });
   if (overrides.likes_count || overrides.pulls_count) {
     await env.DB.prepare(
-      `UPDATE styles
+      `UPDATE drawstyle_styles
        SET likes_count = ?, pulls_count = ?
        WHERE id = ?`,
     )

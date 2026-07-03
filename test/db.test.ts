@@ -71,7 +71,7 @@ describe("db", () => {
     const now = new Date().toISOString();
     await expect(
       env.DB.prepare(
-        `INSERT INTO styles
+        `INSERT INTO drawstyle_styles
           (slug, name, owner_user_id, kind, snippet, category, status, version, likes_count, pulls_count, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
@@ -111,7 +111,7 @@ describe("db", () => {
     const now = new Date().toISOString();
     await expect(
       env.DB.prepare(
-        `INSERT INTO styles
+        `INSERT INTO drawstyle_styles
           (slug, name, owner_user_id, kind, snippet, category, status, version, likes_count, pulls_count, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )

@@ -6,7 +6,10 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "drawstyle_db",
+      // Cloudflare accounts are limited to 10 D1 databases. This project
+      // therefore shares the account-level public-db and isolates its schema
+      // with drawstyle_* table/index prefixes.
+      "database_name": "public-db",
       "database_id": "TBD-at-deploy",
       "migrations_dir": "migrations"
     }

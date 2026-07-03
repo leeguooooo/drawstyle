@@ -69,7 +69,7 @@ export async function createUser(
   const created_at = new Date().toISOString();
   const row = await db
     .prepare(
-      `INSERT INTO users (oidc_sub, email, display_name, created_at)
+      `INSERT INTO drawstyle_users (oidc_sub, email, display_name, created_at)
        VALUES (?, ?, ?, ?)
        RETURNING id, oidc_sub, email, display_name, created_at`,
     )
@@ -88,7 +88,7 @@ export async function upsertUser(
   const created_at = new Date().toISOString();
   const row = await db
     .prepare(
-      `INSERT INTO users (oidc_sub, email, display_name, created_at)
+      `INSERT INTO drawstyle_users (oidc_sub, email, display_name, created_at)
        VALUES (?, ?, ?, ?)
        ON CONFLICT(oidc_sub) DO UPDATE SET
          email = excluded.email,
@@ -110,7 +110,7 @@ export async function getUserById(
   const row = await db
     .prepare(
       `SELECT id, oidc_sub, email, display_name, created_at
-       FROM users
+       FROM drawstyle_users
        WHERE id = ?`,
     )
     .bind(id)
@@ -136,7 +136,7 @@ export async function createStyle(
   const now = new Date().toISOString();
   const row = await db
     .prepare(
-      `INSERT INTO styles
+      `INSERT INTO drawstyle_styles
         (slug, name, owner_user_id, kind, snippet, category, status, version, forked_from, likes_count, pulls_count, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, ?)
        RETURNING id, slug, name, owner_user_id, kind, snippet, category, status, version,
@@ -176,7 +176,7 @@ export async function addImage(
 ): Promise<ImageRow> {
   const row = await db
     .prepare(
-      `INSERT INTO style_images (style_id, r2_key, role, content_type, pending, sort)
+      `INSERT INTO drawstyle_style_images (style_id, r2_key, role, content_type, pending, sort)
        VALUES (?, ?, ?, ?, ?, ?)
        RETURNING id, style_id, r2_key, role, content_type, pending, sort`,
     )
@@ -206,7 +206,7 @@ export async function addTags(
   const statements = tags.map((tag) =>
     db
       .prepare(
-        `INSERT OR IGNORE INTO style_tags (style_id, tag)
+        `INSERT OR IGNORE INTO drawstyle_style_tags (style_id, tag)
          VALUES (?, ?)`,
       )
       .bind(styleId, tag),
@@ -221,12 +221,12 @@ export async function getImagesByKey(
   const result = await db
     .prepare(
       `SELECT
-         style_images.id, style_images.style_id, style_images.r2_key,
-         style_images.role, style_images.content_type, style_images.pending, style_images.sort,
-         styles.status AS style_status, styles.owner_user_id
-       FROM style_images
-       JOIN styles ON styles.id = style_images.style_id
-       WHERE style_images.r2_key = ?`,
+         drawstyle_style_images.id, drawstyle_style_images.style_id, drawstyle_style_images.r2_key,
+         drawstyle_style_images.role, drawstyle_style_images.content_type, drawstyle_style_images.pending, drawstyle_style_images.sort,
+         drawstyle_styles.status AS style_status, drawstyle_styles.owner_user_id
+       FROM drawstyle_style_images
+       JOIN drawstyle_styles ON drawstyle_styles.id = drawstyle_style_images.style_id
+       WHERE drawstyle_style_images.r2_key = ?`,
     )
     .bind(r2_key)
     .all<ImageAccessRow>();
@@ -241,7 +241,7 @@ export async function getStyleBySlug(
     .prepare(
       `SELECT id, slug, name, owner_user_id, kind, snippet, category, status, version,
               review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at
-       FROM styles
+       FROM drawstyle_styles
        WHERE slug = ?`,
     )
     .bind(slug)
@@ -276,8 +276,8 @@ export async function listApprovedStyles(
   for (const tag of options.tags ?? []) {
     where.push(
       `EXISTS (
-         SELECT 1 FROM style_tags
-         WHERE style_tags.style_id = styles.id AND style_tags.tag = ?
+         SELECT 1 FROM drawstyle_style_tags
+         WHERE drawstyle_style_tags.style_id = drawstyle_styles.id AND drawstyle_style_tags.tag = ?
        )`,
     );
     binds.push(tag);
@@ -297,7 +297,7 @@ export async function listApprovedStyles(
     .prepare(
       `SELECT id, slug, name, owner_user_id, kind, snippet, category, status, version,
               review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at
-       FROM styles
+       FROM drawstyle_styles
        WHERE ${where.join(" AND ")}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
@@ -315,7 +315,7 @@ export async function getApprovedStyleBySlug(
     .prepare(
       `SELECT id, slug, name, owner_user_id, kind, snippet, category, status, version,
               review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at
-       FROM styles
+       FROM drawstyle_styles
        WHERE slug = ? AND status = 'approved'`,
     )
     .bind(slug)
@@ -330,7 +330,7 @@ export async function getTagsForStyle(
   const result = await db
     .prepare(
       `SELECT style_id, tag
-       FROM style_tags
+       FROM drawstyle_style_tags
        WHERE style_id = ?
        ORDER BY tag ASC`,
     )
@@ -357,7 +357,7 @@ export async function getImagesForStyle(
   const result = await db
     .prepare(
       `SELECT id, style_id, r2_key, role, content_type, pending, sort
-       FROM style_images
+       FROM drawstyle_style_images
        WHERE ${where.join(" AND ")}
        ORDER BY sort ASC, id ASC`,
     )
@@ -372,7 +372,7 @@ export async function incrementPullsCount(
 ): Promise<void> {
   await db
     .prepare(
-      `UPDATE styles
+      `UPDATE drawstyle_styles
        SET pulls_count = pulls_count + 1,
            updated_at = ?
        WHERE id = ?`,
@@ -389,7 +389,7 @@ export async function countUserStylesSince(
   const row = await db
     .prepare(
       `SELECT COUNT(*) AS count
-       FROM styles
+       FROM drawstyle_styles
        WHERE owner_user_id = ? AND created_at >= ?`,
     )
     .bind(userId, sinceIso)
@@ -400,12 +400,12 @@ export async function countUserStylesSince(
 export async function listCuratedTags(db: D1Database): Promise<string[]> {
   const result = await db
     .prepare(
-      `SELECT style_tags.tag AS tag
-       FROM style_tags
-       JOIN styles ON styles.id = style_tags.style_id
-       WHERE styles.status = 'approved'
-       GROUP BY style_tags.tag
-       ORDER BY COUNT(*) DESC, style_tags.tag ASC
+      `SELECT drawstyle_style_tags.tag AS tag
+       FROM drawstyle_style_tags
+       JOIN drawstyle_styles ON drawstyle_styles.id = drawstyle_style_tags.style_id
+       WHERE drawstyle_styles.status = 'approved'
+       GROUP BY drawstyle_style_tags.tag
+       ORDER BY COUNT(*) DESC, drawstyle_style_tags.tag ASC
        LIMIT 50`,
     )
     .all<{ tag: string }>();
