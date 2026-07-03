@@ -78,6 +78,7 @@ export interface Dict {
   navSubmit: string;
   navMe: string;
   navAdmin: string;
+  navDocs: string;
   navLogin: string;
   navLogout: string;
   langSwitch: string;
@@ -150,6 +151,7 @@ const zh: Dict = {
   navSubmit: "投稿",
   navMe: "我的",
   navAdmin: "审核",
+  navDocs: "文档",
   navLogin: "登录",
   navLogout: "退出",
   langSwitch: "EN",
@@ -229,6 +231,7 @@ const en: Dict = {
   navSubmit: "Submit",
   navMe: "Mine",
   navAdmin: "Review",
+  navDocs: "Docs",
   navLogin: "Sign in",
   navLogout: "Sign out",
   langSwitch: "中文",

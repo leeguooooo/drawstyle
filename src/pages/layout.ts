@@ -146,6 +146,7 @@ export function page(opts: PageOptions): string {
         <a href="/${locale}/submit">${escapeHtml(d.navSubmit)}</a>
         <a href="/${locale}/me">${escapeHtml(d.navMe)}</a>
         <a href="/${locale}/admin">${escapeHtml(d.navAdmin)}</a>
+        <a href="/docs">${escapeHtml(d.navDocs)}</a>
         <a href="${switchHref}">${escapeHtml(d.langSwitch)}</a>
         ${user ? `<span class="muted">${escapeHtml(user.display_name)}</span><a href="${home}" data-action="/auth/logout">${escapeHtml(d.navLogout)}</a>` : `<a href="/auth/login">${escapeHtml(d.navLogin)}</a>`}
       </div>
