@@ -89,6 +89,8 @@ export interface Dict {
   detailDesc: (name: string) => string;
   snippetHeading: string;
   cliHeading: string;
+  copy: string;
+  copied: string;
   like: string;
   unlike: string;
   fork: string;
@@ -153,6 +155,8 @@ const zh: Dict = {
     `${name} —— drawstyle 上的 AI 绘图风格预设,含示例图、prompt 片段与一键 CLI 拉取命令。`,
   snippetHeading: "Prompt 片段",
   cliHeading: "命令行",
+  copy: "复制",
+  copied: "已复制 ✓",
   like: "喜欢",
   unlike: "取消喜欢",
   fork: "复刻",
@@ -222,6 +226,8 @@ const en: Dict = {
     `${name} — an AI image-generation style preset on drawstyle, with example images, a prompt snippet, and a one-line CLI pull command.`,
   snippetHeading: "Prompt snippet",
   cliHeading: "CLI",
+  copy: "Copy",
+  copied: "Copied ✓",
   like: "Like",
   unlike: "Liked ✓",
   fork: "Fork",

@@ -98,7 +98,11 @@ describe("SSR pages", () => {
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("Gallery Style");
-    expect(html).toContain("领导汇报");
+    expect(html).toContain("领导汇报"); // the seeded style's category (report) is active
+    // categories with no approved styles are NOT shown as chips (no fake PPT etc.)
+    expect(html).not.toContain("专业PPT");
+    // the pull command has a copy button
+    expect(html).toContain('data-copy="chatgpt-imagegen style pull');
     expect(html).toContain("blog.leeguoo.com/scripts/visitor-beacon.js");
     expect(html).toContain(`chatgpt-imagegen style pull ${style.slug}`);
   });

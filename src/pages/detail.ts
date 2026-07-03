@@ -34,7 +34,7 @@ export async function detailPage(
     getUserById(db, style.owner_user_id),
   ]);
   const imgs = images
-    .map((image) => `<img src="${origin}/img/${encodeURIComponent(image.r2_key)}" alt="${escapeHtml(image.role)}">`)
+    .map((image) => `<img class="zoomable" src="${origin}/img/${encodeURIComponent(image.r2_key)}" alt="${escapeHtml(image.role)}">`)
     .join("");
   const firstExample =
     images.find((image) => image.role === "example") ?? images[0];
@@ -74,7 +74,8 @@ export async function detailPage(
     <p><span class="badge">${escapeHtml(style.kind)}</span> <span class="badge">${escapeHtml(categoryLabel(style.category, locale))}</span> ${tags.map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join(" ")}</p>
     <div class="grid">${imgs}</div>
     <h2>${escapeHtml(d.snippetHeading)}</h2><pre>${escapeHtml(style.snippet)}</pre>
-    <h2>${escapeHtml(d.cliHeading)}</h2><pre>chatgpt-imagegen style pull ${escapeHtml(style.slug)}</pre>
+    <h2>${escapeHtml(d.cliHeading)}</h2>
+    <div class="cmd"><pre>chatgpt-imagegen style pull ${escapeHtml(style.slug)}</pre><button type="button" class="secondary copy" data-copy="chatgpt-imagegen style pull ${escapeHtml(style.slug)}" data-copied="${escapeHtml(d.copied)}">${escapeHtml(d.copy)}</button></div>
     <p>
       ${likeControl}
       <a class="button secondary" href="/${locale}/submit?fork=${escapeHtml(style.slug)}">${escapeHtml(d.fork)}</a>

@@ -332,6 +332,17 @@ export interface ListApprovedStylesOptions {
   page?: number;
 }
 
+// Categories that actually have at least one approved style — the gallery only
+// shows these chips, so empty categories (e.g. no PPT styles yet) don't appear.
+export async function listActiveCategories(db: D1Database): Promise<string[]> {
+  const res = await db
+    .prepare(
+      `SELECT DISTINCT category FROM drawstyle_styles WHERE status = 'approved'`,
+    )
+    .all<{ category: string }>();
+  return (res.results ?? []).map((r) => r.category);
+}
+
 export async function listApprovedStyles(
   db: D1Database,
   options: ListApprovedStylesOptions = {},

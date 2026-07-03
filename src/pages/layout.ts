@@ -76,12 +76,21 @@ export function page(opts: PageOptions): string {
     .card { border:2px solid var(--ink); background:var(--panel); border-radius:14px 12px 15px 13px / 12px 15px 12px 14px; padding:var(--card-pad); box-shadow:3px 3px 0 var(--shadow); overflow:hidden; }
     .card:hover { box-shadow:4px 4px 0 var(--shadow); }
     .card h2 { margin:10px 0 8px; font-size:20px; }
-    .card h2 a { color:var(--ink); text-decoration:none; }
+    .card h2 a { color:var(--ink); text-decoration:underline; text-decoration-color:var(--accent); text-decoration-thickness:2px; text-underline-offset:3px; }
     .card h2 a:hover { text-decoration:underline wavy var(--accent); text-underline-offset:4px; }
     .card p { margin:6px 0; }
     .card pre { font-size:12px; margin:10px 0 0; }
     /* Full-bleed to the card edges; .card's overflow:hidden clips the top corners. */
-    .card-img { display:block; width:calc(100% + 2*var(--card-pad)); max-width:none; margin:calc(-1*var(--card-pad)) calc(-1*var(--card-pad)) 4px; border:0; border-bottom:2px solid var(--ink); border-radius:0; aspect-ratio:4/3; object-fit:cover; background:var(--paper-tint); }
+    .card-img { display:block; width:calc(100% + 2*var(--card-pad)); max-width:none; margin:calc(-1*var(--card-pad)) calc(-1*var(--card-pad)) 4px; border:0; border-bottom:2px solid var(--ink); border-radius:0; aspect-ratio:4/3; object-fit:contain; background:var(--paper-tint); cursor:zoom-in; }
+    /* copyable command row: the command text + a copy button */
+    .cmd { display:flex; align-items:stretch; gap:8px; margin:10px 0 0; }
+    .cmd pre { flex:1; margin:0; }
+    .cmd .copy { flex:none; font-family:var(--font-marker); font-size:12px; padding:0 12px; }
+    /* image lightbox */
+    .lightbox { position:fixed; inset:0; background:rgba(26,26,26,.82); display:flex; align-items:center; justify-content:center; padding:24px; z-index:50; cursor:zoom-out; }
+    .lightbox[hidden] { display:none; }
+    .lightbox img { max-width:96vw; max-height:92vh; border:3px solid var(--panel); border-radius:12px 14px 11px 13px; background:var(--panel); }
+    .zoomable { cursor:zoom-in; }
     .muted { color:var(--muted); }
     .badge { display:inline-block; font-family:var(--font-marker); font-size:12px; letter-spacing:.5px; border:2px solid var(--ink); border-radius:10px 12px 11px 13px / 13px 10px 12px 11px; padding:1px 9px; color:var(--ink); background:var(--panel); text-decoration:none; }
     a.badge:hover { color:var(--accent-text); border-color:var(--accent); text-decoration:none; }
@@ -136,6 +145,7 @@ export function page(opts: PageOptions): string {
     </nav>
   </header>
   <main>${body}</main>
+  <div class="lightbox" hidden><img alt=""></div>
   <script>
     document.addEventListener('submit', async (event) => {
       const form = event.target;
@@ -206,6 +216,30 @@ export function page(opts: PageOptions): string {
         });
       }
     });
+    // copy-to-clipboard for command rows
+    document.addEventListener('click', async (event) => {
+      const btn = event.target.closest('[data-copy]');
+      if (!btn) return;
+      event.preventDefault();
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        const old = btn.textContent; btn.textContent = btn.dataset.copied || '✓';
+        setTimeout(() => { btn.textContent = old; }, 1200);
+      } catch (e) { /* clipboard blocked — the text is still visible to select */ }
+    });
+    // image lightbox: click a zoomable image to enlarge, click backdrop to close
+    const lb = document.querySelector('.lightbox');
+    const lbImg = lb && lb.querySelector('img');
+    if (lb && lbImg) {
+      document.addEventListener('click', (event) => {
+        const img = event.target.closest('.card-img, .zoomable');
+        if (!img) return;
+        event.preventDefault();
+        lbImg.src = img.src; lb.hidden = false;
+      });
+      lb.addEventListener('click', () => { lb.hidden = true; lbImg.src = ''; });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !lb.hidden) { lb.hidden = true; lbImg.src = ''; } });
+    }
   </script>
 </body>
 </html>`;
