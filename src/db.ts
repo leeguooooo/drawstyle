@@ -126,6 +126,7 @@ export interface CreateStyleInput {
   category: string;
   status: StyleStatus;
   snippet?: string;
+  forked_from?: number | null;
 }
 
 export async function createStyle(
@@ -136,8 +137,8 @@ export async function createStyle(
   const row = await db
     .prepare(
       `INSERT INTO styles
-        (slug, name, owner_user_id, kind, snippet, category, status, version, likes_count, pulls_count, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, 0, ?, ?)
+        (slug, name, owner_user_id, kind, snippet, category, status, version, forked_from, likes_count, pulls_count, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, ?)
        RETURNING id, slug, name, owner_user_id, kind, snippet, category, status, version,
                  review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at`,
     )
@@ -149,6 +150,7 @@ export async function createStyle(
       input.snippet ?? "",
       input.category,
       input.status,
+      input.forked_from ?? null,
       now,
       now,
     )
@@ -377,6 +379,22 @@ export async function incrementPullsCount(
     )
     .bind(new Date().toISOString(), styleId)
     .run();
+}
+
+export async function countUserStylesSince(
+  db: D1Database,
+  userId: number,
+  sinceIso: string,
+): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) AS count
+       FROM styles
+       WHERE owner_user_id = ? AND created_at >= ?`,
+    )
+    .bind(userId, sinceIso)
+    .first<{ count: number }>();
+  return row?.count ?? 0;
 }
 
 export async function listCuratedTags(db: D1Database): Promise<string[]> {
