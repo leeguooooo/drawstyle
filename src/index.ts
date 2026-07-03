@@ -13,6 +13,7 @@ import { galleryPage } from "./pages/gallery";
 import { mePage } from "./pages/me";
 import { submitPage, submitSignInGate } from "./pages/submit";
 import { seoRoutes } from "./seo";
+import { docsCss, renderDocsPage } from "./pages/docs";
 
 export const LANG_COOKIE_NAME = "lang";
 const LANG_COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
@@ -65,6 +66,21 @@ function legacyRedirect(
 app.get("/healthz", (c) => c.json({ ok: true }));
 app.route("/auth", oidcRoutes);
 app.get("/img/:key", authOptional, imageProxy);
+
+// --- docs site (/docs) — standalone hand-drawn documentation ---
+app.get("/docs/docs.css", (c) => {
+  c.header("Content-Type", "text/css; charset=utf-8");
+  c.header("Cache-Control", "public, max-age=3600");
+  return c.body(docsCss());
+});
+app.get("/docs", (c) => {
+  const html = renderDocsPage("");
+  return html ? c.html(html) : c.notFound();
+});
+app.get("/docs/:slug", (c) => {
+  const html = renderDocsPage(c.req.param("slug"));
+  return html ? c.html(html) : c.notFound();
+});
 app.route("/", seoRoutes);
 app.route("/api", stylesReadRoutes);
 app.route("/api", stylesWriteRoutes);
