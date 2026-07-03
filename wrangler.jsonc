@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "drawstyle",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-03",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "drawstyle_db",
+      "database_id": "TBD-at-deploy",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "drawstyle-assets"
+    }
+  ],
+  "vars": {
+    "OIDC_ISSUER": "https://account.leeguoo.com",
+    "OIDC_CLIENT_ID": "drawstyle-web",
+    "ADMIN_EMAILS": ""
+  }
+}
