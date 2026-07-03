@@ -51,6 +51,11 @@ export interface ImageAccessRow extends ImageRow {
   owner_user_id: number;
 }
 
+export interface StyleTagRow {
+  style_id: number;
+  tag: string;
+}
+
 export interface CreateUserInput {
   oidc_sub: string;
   email: string;
@@ -188,6 +193,25 @@ export async function addImage(
   return row;
 }
 
+export async function addTags(
+  db: D1Database,
+  styleId: number,
+  tags: string[],
+): Promise<void> {
+  if (tags.length === 0) {
+    return;
+  }
+  const statements = tags.map((tag) =>
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO style_tags (style_id, tag)
+         VALUES (?, ?)`,
+      )
+      .bind(styleId, tag),
+  );
+  await db.batch(statements);
+}
+
 export async function getImagesByKey(
   db: D1Database,
   r2_key: string,
@@ -221,4 +245,151 @@ export async function getStyleBySlug(
     .bind(slug)
     .first<StyleRow>();
   return row ?? null;
+}
+
+export interface ListApprovedStylesOptions {
+  q?: string;
+  category?: string;
+  tags?: string[];
+  sort?: "likes" | "new" | "pulls";
+  page?: number;
+}
+
+export async function listApprovedStyles(
+  db: D1Database,
+  options: ListApprovedStylesOptions = {},
+): Promise<StyleRow[]> {
+  const where = ["status = 'approved'"];
+  const binds: (string | number)[] = [];
+  const q = options.q?.trim();
+  if (q) {
+    where.push("(slug LIKE ? OR name LIKE ? OR snippet LIKE ?)");
+    const like = `%${q}%`;
+    binds.push(like, like, like);
+  }
+  if (options.category) {
+    where.push("category = ?");
+    binds.push(options.category);
+  }
+  for (const tag of options.tags ?? []) {
+    where.push(
+      `EXISTS (
+         SELECT 1 FROM style_tags
+         WHERE style_tags.style_id = styles.id AND style_tags.tag = ?
+       )`,
+    );
+    binds.push(tag);
+  }
+
+  const sort = options.sort ?? "new";
+  const orderBy =
+    sort === "likes"
+      ? "likes_count DESC, created_at DESC"
+      : sort === "pulls"
+        ? "pulls_count DESC, created_at DESC"
+        : "created_at DESC";
+  const page = Math.max(1, options.page ?? 1);
+  binds.push(20, (page - 1) * 20);
+
+  const result = await db
+    .prepare(
+      `SELECT id, slug, name, owner_user_id, kind, snippet, category, status, version,
+              review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at
+       FROM styles
+       WHERE ${where.join(" AND ")}
+       ORDER BY ${orderBy}
+       LIMIT ? OFFSET ?`,
+    )
+    .bind(...binds)
+    .all<StyleRow>();
+  return result.results;
+}
+
+export async function getApprovedStyleBySlug(
+  db: D1Database,
+  slug: string,
+): Promise<StyleRow | null> {
+  const row = await db
+    .prepare(
+      `SELECT id, slug, name, owner_user_id, kind, snippet, category, status, version,
+              review_note, pending_revision, forked_from, likes_count, pulls_count, created_at, updated_at
+       FROM styles
+       WHERE slug = ? AND status = 'approved'`,
+    )
+    .bind(slug)
+    .first<StyleRow>();
+  return row ?? null;
+}
+
+export async function getTagsForStyle(
+  db: D1Database,
+  styleId: number,
+): Promise<string[]> {
+  const result = await db
+    .prepare(
+      `SELECT style_id, tag
+       FROM style_tags
+       WHERE style_id = ?
+       ORDER BY tag ASC`,
+    )
+    .bind(styleId)
+    .all<StyleTagRow>();
+  return result.results.map((row) => row.tag);
+}
+
+export async function getImagesForStyle(
+  db: D1Database,
+  styleId: number,
+  options: { role?: ImageRole; pending?: number } = {},
+): Promise<ImageRow[]> {
+  const where = ["style_id = ?"];
+  const binds: (string | number)[] = [styleId];
+  if (options.role) {
+    where.push("role = ?");
+    binds.push(options.role);
+  }
+  if (options.pending !== undefined) {
+    where.push("pending = ?");
+    binds.push(options.pending);
+  }
+  const result = await db
+    .prepare(
+      `SELECT id, style_id, r2_key, role, content_type, pending, sort
+       FROM style_images
+       WHERE ${where.join(" AND ")}
+       ORDER BY sort ASC, id ASC`,
+    )
+    .bind(...binds)
+    .all<ImageRow>();
+  return result.results;
+}
+
+export async function incrementPullsCount(
+  db: D1Database,
+  styleId: number,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE styles
+       SET pulls_count = pulls_count + 1,
+           updated_at = ?
+       WHERE id = ?`,
+    )
+    .bind(new Date().toISOString(), styleId)
+    .run();
+}
+
+export async function listCuratedTags(db: D1Database): Promise<string[]> {
+  const result = await db
+    .prepare(
+      `SELECT style_tags.tag AS tag
+       FROM style_tags
+       JOIN styles ON styles.id = style_tags.style_id
+       WHERE styles.status = 'approved'
+       GROUP BY style_tags.tag
+       ORDER BY COUNT(*) DESC, style_tags.tag ASC
+       LIMIT 50`,
+    )
+    .all<{ tag: string }>();
+  return result.results.map((row) => row.tag);
 }
