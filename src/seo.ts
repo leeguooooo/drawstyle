@@ -3,7 +3,8 @@
 import { Hono } from "hono";
 import { SITE_URL } from "./config";
 import { listApprovedSlugsForSitemap } from "./db";
-import { LOCALES } from "./i18n";
+import { DEFAULT_LOCALE, LOCALES } from "./i18n";
+import { DOCS_SLUGS } from "./pages/docs";
 import { escapeHtml } from "./pages/layout";
 
 export const seoRoutes = new Hono<{ Bindings: Env }>();
@@ -21,7 +22,7 @@ function urlEntry(pathAfterLocale: string, lastmod?: string): string {
       (loc) =>
         `    <xhtml:link rel="alternate" hreflang="${loc}" href="${escapeXml(`${SITE_URL}/${loc}${pathAfterLocale}`)}"/>`,
     ),
-    `    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXml(`${SITE_URL}/zh${pathAfterLocale}`)}"/>`,
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXml(`${SITE_URL}/${DEFAULT_LOCALE}${pathAfterLocale}`)}"/>`,
   ].join("\n");
   return LOCALES.map((loc) =>
     [
@@ -40,6 +41,7 @@ seoRoutes.get("/sitemap.xml", async (c) => {
   const styles = await listApprovedSlugsForSitemap(c.env.DB);
   const entries = [
     urlEntry("/"),
+    ...DOCS_SLUGS.map((slug) => urlEntry(slug ? `/docs/${slug}` : "/docs")),
     ...styles.map((style) => urlEntry(`/s/${style.slug}`, style.updated_at)),
   ];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -82,11 +84,15 @@ seoRoutes.get("/llms.txt", (c) =>
 drawstyle(画风广场)是面向 AI 绘图的社区风格预设库。每个风格包含 prompt 片段、
 示例图和可选参考图,可以用一条命令拉取到本地使用。
 
+Built and maintained by 郭立 (Guo Li / Leo / leeguoo) — https://leeguoo.com/ .
+Part of the leeguoo family alongside the blog at https://blog.leeguoo.com/ .
+
 ## URL scheme
 
-- HTML pages are localized under /zh/ and /en/:
-  - Gallery: ${SITE_URL}/zh/ and ${SITE_URL}/en/
-  - Style detail: ${SITE_URL}/{zh|en}/s/{slug}
+- HTML pages are localized under /en/ (default) and /zh/:
+  - Gallery: ${SITE_URL}/en/ and ${SITE_URL}/zh/
+  - Style detail: ${SITE_URL}/{en|zh}/s/{slug}
+  - Documentation: ${SITE_URL}/en/docs and ${SITE_URL}/zh/docs
 - JSON API, images and auth are unprefixed (/api/*, /img/*, /auth/*).
 
 ## For agents and LLMs
@@ -95,12 +101,16 @@ drawstyle(画风广场)是面向 AI 绘图的社区风格预设库。每个风�
   Supports ?q=, ?category=, ?tag=, ?sort=likes|new|pulls, ?page=.
 - Fetch one style's full package (snippet + reference image URLs):
   GET ${SITE_URL}/api/styles/{slug}/package
-- Pull a style into a local project with the CLI:
+- Generate directly with a gallery style (nothing saved locally):
+  chatgpt-imagegen "<prompt>" --style-online {slug}
+- Or pull a style into a local project:
   chatgpt-imagegen style pull {slug}
 - CLI repository: https://github.com/leeguooooo/chatgpt-imagegen
 
 ## More
 
+- Documentation: ${SITE_URL}/en/docs
+- Blog (deep dives by 郭立 / leeguoo): https://blog.leeguoo.com/
 - Sitemap: ${SITE_URL}/sitemap.xml
 `,
   ),

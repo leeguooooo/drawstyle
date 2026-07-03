@@ -4,18 +4,40 @@
 // whole leeguoo family shares one entity graph (Organization / Person @ids).
 
 import { SITE_URL } from "../config";
-import { htmlLang, ogLocale, swapLocale, type Locale } from "../i18n";
+import { DEFAULT_LOCALE, htmlLang, ogLocale, swapLocale, type Locale } from "../i18n";
 import { escapeHtml } from "./layout";
 
 export const SITE_NAME = "drawstyle";
 export const TWITTER_HANDLE = "@leeguooooo";
+// Human-readable author byline reused in <meta name="author"> and footers.
+export const AUTHOR_BYLINE = "郭立 (Guo Li / Leo / leeguoo)";
 
-// Reused across the leeguoo family so search engines merge the entity graph.
+// Reused across the leeguoo family so search engines merge ONE entity graph
+// with blog.leeguoo.com and leeguoo.com — same @ids for the person & org.
+const PERSON = {
+  "@type": "Person",
+  "@id": "https://leeguoo.com/about#person",
+  name: "郭立",
+  alternateName: ["Guo Li", "Li Guo", "Leo", "leeguoo"],
+  url: "https://leeguoo.com/about",
+  sameAs: [
+    "https://github.com/leeguooooo",
+    "https://www.linkedin.com/in/li-guo-372ba1365/",
+    "https://x.com/leeguooooo",
+    "https://blog.leeguoo.com/",
+  ],
+};
+
 const PUBLISHER = {
   "@type": "Organization",
   "@id": "https://leeguoo.com/#org",
   name: "leeguoo",
   url: "https://leeguoo.com/",
+  founder: { "@id": PERSON["@id"] },
+  logo: {
+    "@type": "ImageObject",
+    url: "https://avatars.githubusercontent.com/u/9278645?v=4",
+  },
 };
 
 export interface HeadOptions {
@@ -46,9 +68,12 @@ function websiteNode(locale: Locale): Record<string, unknown> {
     "@type": "WebSite",
     "@id": `${SITE_URL}/#website`,
     name: SITE_NAME,
+    alternateName: "drawstyle · 画风画廊",
     url: `${SITE_URL}/`,
     inLanguage: htmlLang(locale),
     publisher: PUBLISHER,
+    creator: { "@id": PERSON["@id"] },
+    author: { "@id": PERSON["@id"] },
     potentialAction: {
       "@type": "SearchAction",
       target: {
@@ -70,17 +95,21 @@ export function buildHead(opts: HeadOptions): string {
   const { locale, path, title, description, ogImage } = opts;
   const zhUrl = abs(swapLocale(path, "zh"));
   const enUrl = abs(swapLocale(path, "en"));
+  const defaultUrl = abs(swapLocale(path, DEFAULT_LOCALE));
   const canonical = abs(path);
   const fullTitle = `${title} · ${SITE_NAME}`;
 
   const parts: string[] = [
     `<title>${escapeHtml(fullTitle)}</title>`,
     `<meta name="description" content="${escapeHtml(description)}">`,
+    `<meta name="robots" content="index,follow,max-image-preview:large">`,
+    `<meta name="author" content="${escapeHtml(AUTHOR_BYLINE)}">`,
     `<link rel="canonical" href="${escapeHtml(canonical)}">`,
+    `<link rel="me" href="https://leeguoo.com/">`,
     `<link rel="alternate" hreflang="zh" href="${escapeHtml(zhUrl)}">`,
     `<link rel="alternate" hreflang="en" href="${escapeHtml(enUrl)}">`,
-    // x-default -> zh, matching blog.leeguoo.com's convention.
-    `<link rel="alternate" hreflang="x-default" href="${escapeHtml(zhUrl)}">`,
+    // x-default -> the site default locale (en).
+    `<link rel="alternate" hreflang="x-default" href="${escapeHtml(defaultUrl)}">`,
     metaTag("og:type", "website"),
     metaTag("og:site_name", SITE_NAME),
     metaTag("og:title", fullTitle),
@@ -103,6 +132,9 @@ export function buildHead(opts: HeadOptions): string {
   parts.push(metaTag("twitter:description", description, "name"));
 
   parts.push(jsonLdScript(websiteNode(locale)));
+  // The person/brand node (郭立 / Guo Li / Leo / leeguoo) on every page, so the
+  // whole site attributes to the same author entity as blog.leeguoo.com.
+  parts.push(jsonLdScript({ "@context": "https://schema.org", ...PERSON }));
   for (const node of opts.jsonLd ?? []) {
     parts.push(jsonLdScript(node));
   }

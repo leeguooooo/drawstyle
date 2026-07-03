@@ -68,8 +68,14 @@ describe("locale routing", () => {
     expect(res.headers.get("Location")).toBe("/zh/");
   });
 
-  it("302s / to /zh/ when there is no language signal", async () => {
+  it("302s / to /en/ (default locale) when there is no language signal", async () => {
     const res = await app.request("/", {}, env);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toBe("/en/");
+  });
+
+  it("still honors a zh Accept-Language for the root redirect", async () => {
+    const res = await app.request("/", { headers: { "Accept-Language": "zh-CN,zh;q=0.9" } }, env);
     expect(res.status).toBe(302);
     expect(res.headers.get("Location")).toBe("/zh/");
   });
@@ -89,31 +95,31 @@ describe("locale routing", () => {
     expect(res.headers.get("Location")).toBe("/en/");
   });
 
-  it("301s old unprefixed URLs to /zh deterministically, ignoring language signals", async () => {
+  it("301s old unprefixed URLs to /en deterministically, ignoring language signals", async () => {
     const { style } = await approvedStyle();
 
     const detail = await app.request(`/s/${style.slug}`, {}, env);
     expect(detail.status).toBe(301);
-    expect(detail.headers.get("Location")).toBe(`/zh/s/${style.slug}`);
+    expect(detail.headers.get("Location")).toBe(`/en/s/${style.slug}`);
 
     // 301s are cached per-URL forever, so the target must NOT depend on the
-    // visitor's Accept-Language or lang cookie — always /zh (x-default).
-    const detailEn = await app.request(
+    // visitor's Accept-Language or lang cookie — always /en (x-default).
+    const detailZh = await app.request(
       `/s/${style.slug}`,
-      { headers: { "Accept-Language": "en-US", Cookie: "lang=en" } },
+      { headers: { "Accept-Language": "zh-CN", Cookie: "lang=zh" } },
       env,
     );
-    expect(detailEn.status).toBe(301);
-    expect(detailEn.headers.get("Location")).toBe(`/zh/s/${style.slug}`);
+    expect(detailZh.status).toBe(301);
+    expect(detailZh.headers.get("Location")).toBe(`/en/s/${style.slug}`);
 
     const submit = await app.request("/submit?fork=abc", {}, env);
     expect(submit.status).toBe(301);
-    expect(submit.headers.get("Location")).toBe("/zh/submit?fork=abc");
+    expect(submit.headers.get("Location")).toBe("/en/submit?fork=abc");
 
     for (const path of ["/me", "/admin"]) {
       const res = await app.request(path, {}, env);
       expect(res.status).toBe(301);
-      expect(res.headers.get("Location")).toBe(`/zh${path}`);
+      expect(res.headers.get("Location")).toBe(`/en${path}`);
     }
   });
 
@@ -149,7 +155,7 @@ describe("SEO head", () => {
       '<link rel="alternate" hreflang="en" href="https://drawstyle.leeguoo.com/en/">',
     );
     expect(html).toContain(
-      '<link rel="alternate" hreflang="x-default" href="https://drawstyle.leeguoo.com/zh/">',
+      '<link rel="alternate" hreflang="x-default" href="https://drawstyle.leeguoo.com/en/">',
     );
     expect(html).toContain('<meta property="og:locale" content="en_US">');
     expect(html).toContain('<meta name="twitter:site" content="@leeguooooo">');

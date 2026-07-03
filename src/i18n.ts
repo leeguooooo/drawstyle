@@ -14,7 +14,7 @@ import type { StyleStatus } from "./db";
 //   3. localeFromAcceptLanguage's preference branches.
 export const LOCALES = ["zh", "en"] as const;
 export type Locale = (typeof LOCALES)[number];
-export const DEFAULT_LOCALE: Locale = "zh";
+export const DEFAULT_LOCALE: Locale = "en";
 
 const LOCALE_PREFIX_RE = new RegExp(`^/(${LOCALES.join("|")})(/.*|$)`);
 
@@ -79,6 +79,9 @@ export interface Dict {
   navMe: string;
   navAdmin: string;
   navDocs: string;
+  footerMadeBy: string;
+  footerBlog: string;
+  footerTagline: string;
   navLogin: string;
   navLogout: string;
   langSwitch: string;
@@ -152,6 +155,9 @@ const zh: Dict = {
   navMe: "我的",
   navAdmin: "审核",
   navDocs: "文档",
+  footerMadeBy: "由",
+  footerBlog: "博客",
+  footerTagline: "面向 AI 绘图的社区画风画廊",
   navLogin: "登录",
   navLogout: "退出",
   langSwitch: "EN",
@@ -232,6 +238,9 @@ const en: Dict = {
   navMe: "Mine",
   navAdmin: "Review",
   navDocs: "Docs",
+  footerMadeBy: "by",
+  footerBlog: "Blog",
+  footerTagline: "a community gallery of AI drawing styles",
   navLogin: "Sign in",
   navLogout: "Sign out",
   langSwitch: "中文",

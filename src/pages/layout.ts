@@ -119,6 +119,10 @@ export function page(opts: PageOptions): string {
     button.danger { background:var(--danger); border-color:var(--ink); color:#fff; }
     a:focus-visible, button:focus-visible, .button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline:3px solid var(--accent-2); outline-offset:2px; }
     form { margin:0; }
+    .site-footer { border-top:2px solid var(--ink); margin-top:48px; padding:22px 20px 40px; text-align:center; font-size:14px; line-height:1.9; }
+    .site-footer .foot-brand { font-family:var(--font-marker); color:var(--accent-text); }
+    .site-footer a { color:var(--accent-2); text-decoration:none; }
+    .site-footer a:hover { text-decoration:underline wavy var(--accent); text-underline-offset:3px; }
     .signin-gate { max-width:460px; margin:40px auto; text-align:center; }
     .signin-gate h1 { margin-top:0; }
     /* hand-drawn file dropzone (progressively enhanced from a raw file input) */
@@ -146,13 +150,17 @@ export function page(opts: PageOptions): string {
         <a href="/${locale}/submit">${escapeHtml(d.navSubmit)}</a>
         <a href="/${locale}/me">${escapeHtml(d.navMe)}</a>
         <a href="/${locale}/admin">${escapeHtml(d.navAdmin)}</a>
-        <a href="/docs">${escapeHtml(d.navDocs)}</a>
+        <a href="/${locale}/docs">${escapeHtml(d.navDocs)}</a>
         <a href="${switchHref}">${escapeHtml(d.langSwitch)}</a>
         ${user ? `<span class="muted">${escapeHtml(user.display_name)}</span><a href="${home}" data-action="/auth/logout">${escapeHtml(d.navLogout)}</a>` : `<a href="/auth/login">${escapeHtml(d.navLogin)}</a>`}
       </div>
     </nav>
   </header>
   <main>${body}</main>
+  <footer class="site-footer">
+    <p><span class="foot-brand">${escapeHtml(d.brand)}</span> — ${escapeHtml(d.footerTagline)}</p>
+    <p class="muted">${escapeHtml(d.footerMadeBy)} <a href="https://leeguoo.com/" rel="author">郭立 · Guo Li · leeguoo</a> · <a href="https://blog.leeguoo.com/">${escapeHtml(d.footerBlog)}</a> · <a href="/${locale}/docs">${escapeHtml(d.navDocs)}</a> · <a href="https://github.com/leeguooooo/drawstyle">GitHub</a></p>
+  </footer>
   <div class="lightbox" hidden><img alt=""></div>
   <script>
     document.addEventListener('submit', async (event) => {

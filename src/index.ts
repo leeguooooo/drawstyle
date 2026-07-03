@@ -67,19 +67,20 @@ app.get("/healthz", (c) => c.json({ ok: true }));
 app.route("/auth", oidcRoutes);
 app.get("/img/:key", authOptional, imageProxy);
 
-// --- docs site (/docs) — standalone hand-drawn documentation ---
+// --- docs site — bilingual, under /{locale}/docs; shared stylesheet ---
 app.get("/docs/docs.css", (c) => {
   c.header("Content-Type", "text/css; charset=utf-8");
   c.header("Cache-Control", "public, max-age=3600");
   return c.body(docsCss());
 });
+// Unprefixed /docs* redirect to the visitor's negotiated locale (302, Vary).
 app.get("/docs", (c) => {
-  const html = renderDocsPage("");
-  return html ? c.html(html) : c.notFound();
+  c.header("Vary", "Accept-Language, Cookie");
+  return c.redirect(`/${requestLocale(c)}/docs`, 302);
 });
 app.get("/docs/:slug", (c) => {
-  const html = renderDocsPage(c.req.param("slug"));
-  return html ? c.html(html) : c.notFound();
+  c.header("Vary", "Accept-Language, Cookie");
+  return c.redirect(`/${requestLocale(c)}/docs/${c.req.param("slug")}`, 302);
 });
 app.route("/", seoRoutes);
 app.route("/api", stylesReadRoutes);
@@ -125,6 +126,16 @@ app.get("/admin", (c) => legacyRedirect(c, "/admin"));
 // RegExpRouter inlines `{zh|en}` alternations unwrapped, which mis-matches).
 for (const locale of LOCALES) {
   app.get(`/${locale}`, (c) => c.redirect(`/${locale}/`, 301));
+
+  // docs (registered before the gallery routes; /:slug won't shadow /docs)
+  app.get(`/${locale}/docs`, (c) => {
+    const html = renderDocsPage(locale, "");
+    return html ? c.html(html) : c.notFound();
+  });
+  app.get(`/${locale}/docs/:slug`, (c) => {
+    const html = renderDocsPage(locale, c.req.param("slug"));
+    return html ? c.html(html) : c.notFound();
+  });
 
   app.get(`/${locale}/`, authOptional, async (c) =>
     c.html(
