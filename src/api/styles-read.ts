@@ -10,6 +10,7 @@ import {
   type ImageRow,
   type StyleRow,
 } from "../db";
+import { isAnimatedR2Key } from "../images";
 
 export const CATEGORIES = [
   { key: "report", label_zh: "领导汇报", label_en: "Executive Report" },
@@ -86,6 +87,7 @@ async function detailPayload(
       role: image.role,
       url: imageUrl(origin, image),
       content_type: image.content_type,
+      animated: isAnimatedR2Key(image.r2_key),
       sort: image.sort,
     })),
   };

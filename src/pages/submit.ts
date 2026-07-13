@@ -50,9 +50,9 @@ export async function submitPage(
   // (Chrome can't focus the validation bubble). So mark the zone required and
   // let the client validate it with a visible message; the server also enforces
   // ≥1 example, so JS-off users still get a real error.
-  const dropzone = (name: string, hint: string, required: boolean) =>
+  const dropzone = (name: string, hint: string, required: boolean, allowAnimation = false) =>
     `<div class="dropzone" data-dropzone data-remove="${escapeHtml(d.dropzoneRemove)}"${required ? ` data-required data-required-msg="${escapeHtml(d.dropzoneRequired)}"` : ""}>
-      <input name="${name}" type="file" accept="image/png,image/jpeg,image/webp" multiple${required ? " required" : ""}>
+      <input name="${name}" type="file" accept="image/png,image/jpeg,image/webp${allowAnimation ? ",image/gif" : ""}" multiple${required ? " required" : ""}>
       <div class="dropzone__prompt">
         <span class="dropzone__pick">${escapeHtml(d.dropzonePrompt)}</span>
         <span class="dropzone__hint muted">${escapeHtml(hint)}</span>
@@ -74,7 +74,7 @@ export async function submitPage(
       <label>${escapeHtml(d.fieldCategory)}</label><select name="category">${CATEGORIES.map((cat) => `<option value="${cat.key}" ${cat.key === category ? "selected" : ""}>${escapeHtml(categoryLabel(cat.key, locale))}</option>`).join("")}</select>
       <label>${escapeHtml(d.fieldTags)}</label><input name="tag" value="${escapeHtml(tags.join(" "))}" placeholder="watercolor">
       <label>${escapeHtml(d.fieldSnippet)}</label><textarea name="snippet">${escapeHtml(source?.snippet ?? "")}</textarea>
-      ${isEdit ? "" : `<label>${escapeHtml(d.fieldExamples)}</label>${dropzone("example[]", d.dropzoneExamplesHint, true)}`}
+      ${isEdit ? "" : `<label>${escapeHtml(d.fieldExamples)}</label>${dropzone("example[]", d.dropzoneExamplesHint, true, true)}`}
       <label>${escapeHtml(d.fieldReferences)}</label>${dropzone("ref[]", d.dropzoneRefsHint, false)}
       ${isEdit ? `<p class="muted">${escapeHtml(d.refsKeepHint)}</p>` : ""}
       <p><button>${escapeHtml(d.submitButton)}</button></p>

@@ -183,6 +183,10 @@ function pages(locale: Locale): Record<string, DocPage> {
         `<h2>${c("Image-to-image (editing)", "图生图(改图)")}</h2>` +
         `<p>${c(`Pass a reference with <code>-i</code> / <code>--ref</code> to <b>edit it</b> instead of generating from text — like dragging an image into the ChatGPT composer and asking for a restyle. Both backends support it; references are local paths or <code>http(s)</code> URLs, repeat <code>-i</code> for several.`, `用 <code>-i</code> / <code>--ref</code> 传一张参考图,就变成<b>改图</b>而不是从文字生成——等同于把图拖进 ChatGPT 对话框让它改风格。两个后端都支持,参考图可以是本地路径或 <code>http(s)</code> URL,重复 <code>-i</code> 传多张。`)}</p>` +
         code("terminal", [c('$ chatgpt-imagegen "warm golden-hour photo, cinematic 35mm" -i photo.jpg -o out.png', '$ chatgpt-imagegen "改成暖调黄昏、电影感 35mm" -i photo.jpg -o out.png')]) +
+        `<h2>${c("Looping GIF / WebP", "循环 GIF / WebP")}</h2>` +
+        `<p>${c(`The <code>animate</code> subcommand generates one strict 4×2 sprite sheet, crops eight frames, rejects obvious subject drift, and encodes a smooth loop. Animated WebP is the default; add <code>--also-gif</code> for both. ImageMagick is required, and WebP additionally needs <code>img2webp</code>.`, `<code>animate</code> 子命令会一次生成严格的 4×2 雪碧图,裁出 8 帧,拒绝明显的主体漂移,再编码成平滑循环。默认输出动态 WebP;加 <code>--also-gif</code> 可同时得到 GIF。后处理需要 ImageMagick,WebP 还需要 <code>img2webp</code>。`)}</p>` +
+        code("terminal", [c('$ chatgpt-imagegen animate "a dog happily wagging its tail" --style-online snoopy --also-gif', '$ chatgpt-imagegen animate "小狗开心地摇尾巴" --style-online snoopy --also-gif')]) +
+        callout("note", c("Publishing animation examples", "投稿动画示例"), c(`Upload a still poster first and the GIF/animated WebP second. Gallery cards prefer the still image so the whole page stays quiet; the style detail page plays the loop.`, `投稿时先放静态封面,再放 GIF 或动态 WebP。画廊卡片优先静态图,避免整页同时播放;风格详情页会播放动图。`)) +
         `<h2>${c("Common flags", "常用参数")}</h2>` +
         `<p><code>--backend auto|web|codex</code> · <code>-o PATH</code> · <code>--size</code> · <code>--format png|jpeg|webp</code> · <code>-i/--ref</code> · <code>--style NAME</code> · <code>--quiet</code>. ${c("Full list:", "完整列表:")} <code>chatgpt-imagegen --help</code>.</p>` +
         divider +
@@ -319,6 +323,7 @@ function pages(locale: Locale): Record<string, DocPage> {
           c("# the pull package: snippet + version + reference image URLs", "# 拉取包(命令行 pull 用的就是它):片段 + 版本 + 参考图 URL"),
           "$ curl https://drawstyle.leeguoo.com/api/styles/xiaohei/package",
         ]) +
+        `<p>${c(`Image entries in style detail include <code>content_type</code> and <code>animated</code>, so clients can distinguish still posters from GIF/animated WebP examples without downloading the asset first.`, `风格详情里的图片条目包含 <code>content_type</code> 与 <code>animated</code>,客户端无需先下载文件就能区分静态封面和 GIF/动态 WebP 示例。`)}</p>` +
         callout("tip", "GEO", c(`<code>https://drawstyle.leeguoo.com/llms.txt</code> describes, in plain language, what the platform is, its endpoints, and how to pull from the CLI — generative-engine optimization.`, `<code>https://drawstyle.leeguoo.com/llms.txt</code> 用自然语言说明了平台是什么、有哪些接口、以及怎么用命令行拉取——面向生成式搜索引擎优化。`)) +
         `<h2>${c("How the CLI connects", "命令行如何对接")}</h2>` +
         `<p>${c(`<code>style search</code> hits <code>/api/styles</code>; <code>pull</code> and <code>--style-online</code> hit <code>/package</code> for the snippet and reference images. All read-only, no auth.`, `<code>style search</code> 打 <code>/api/styles</code>;<code>pull</code> 和 <code>--style-online</code> 打 <code>/package</code> 拿到片段和参考图。全部只读、无需鉴权。`)}</p>` +

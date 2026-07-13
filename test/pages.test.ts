@@ -7,6 +7,10 @@ import { putImage } from "../src/images";
 import { makeUser } from "./helpers";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
+const ANIMATED_WEBP = new Uint8Array([
+  0x52, 0x49, 0x46, 0x46, 0x24, 0, 0, 0, 0x57, 0x45, 0x42, 0x50,
+  0x41, 0x4e, 0x49, 0x4d,
+]);
 
 function uniq(prefix: string): string {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -62,8 +66,38 @@ describe("SSR pages", () => {
     const res = await app.request("/zh/", {}, env);
     const html = await res.text();
     // the reference-only style still gets a card cover image
-    expect(html).toContain(`class="card-img" src="`);
+    expect(html).toContain(`class="card-img"`);
     expect(html).toContain(encodeURIComponent(refKey));
+  });
+
+  it("gallery prefers a still poster while detail marks the animation", async () => {
+    const owner = await makeUser();
+    const style = await approvedStyle(owner.id, { name: "Animated Style" });
+    const animation = await putImage(env.ASSETS, ANIMATED_WEBP);
+    await addImage(env.DB, {
+      style_id: style.id,
+      r2_key: animation.r2_key,
+      role: "example",
+      content_type: animation.content_type,
+      sort: 0,
+    });
+    const poster = await putImage(env.ASSETS, new Uint8Array([...PNG, 7]));
+    await addImage(env.DB, {
+      style_id: style.id,
+      r2_key: poster.r2_key,
+      role: "example",
+      content_type: poster.content_type,
+      sort: 1,
+    });
+
+    const gallery = await (await app.request("/en/", {}, env)).text();
+    const card = gallery.split('class="card"').find((part) => part.includes("Animated Style")) ?? "";
+    expect(card).toContain(encodeURIComponent(poster.r2_key));
+    expect(card).not.toContain(encodeURIComponent(animation.r2_key));
+
+    const detail = await (await app.request(`/en/s/${style.slug}`, {}, env)).text();
+    expect(detail).toContain(encodeURIComponent(animation.r2_key));
+    expect(detail).toContain('data-animated="true"');
   });
 
   it("gallery card prefers the example image over a reference when both exist", async () => {
@@ -162,6 +196,7 @@ describe("SSR pages", () => {
     // real inputs preserved (FormData reads them) AND wrapped for enhancement
     expect(html).toContain('name="example[]" type="file"');
     expect(html).toContain('name="ref[]" type="file"');
+    expect(html).toContain("image/gif");
     expect(html).toContain("data-dropzone");
     expect(html).toContain('class="dropzone__previews"');
     // the examples zone is client-validated required (native required on a

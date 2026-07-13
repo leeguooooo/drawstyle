@@ -14,6 +14,7 @@ import { MAX_IMAGE_BYTES, putImage } from "../src/images";
 import { makeUser } from "./helpers";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
+const GIF = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1]);
 
 function uniq(prefix: string): string {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -109,6 +110,22 @@ describe("styles write API", () => {
     const images = await getImagesForStyle(env.DB, style?.id ?? 0);
     expect(images.map((image) => image.role).sort()).toEqual(["example", "reference"]);
     expect(images.every((image) => image.content_type === "image/png")).toBe(true);
+  });
+
+  it("accepts animation examples but rejects animated references", async () => {
+    const { cookie } = await sessionCookie();
+    const animated = validForm(uniq("animated-example"));
+    animated.set("example[]", imageFile("loop.gif", GIF));
+    const accepted = await postForm(animated, cookie);
+    expect(accepted.status).toBe(201);
+
+    const badRef = validForm(uniq("animated-ref"));
+    badRef.append("ref[]", imageFile("ref.gif", GIF));
+    const rejected = await postForm(badRef, cookie);
+    expect(rejected.status).toBe(400);
+    expect(await rejected.json()).toEqual({
+      error: { code: "bad_image", message: "reference images must be static" },
+    });
   });
 
   it("records fork provenance from an approved source slug", async () => {

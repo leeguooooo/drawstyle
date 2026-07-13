@@ -7,6 +7,7 @@ import {
   ImageValidationError,
   MAX_IMAGE_BYTES,
   deleteImageRowsAndObjects,
+  isAnimatedR2Key,
   putImage,
   sniffMime,
   validateImageBytes,
@@ -17,6 +18,8 @@ const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1]);
 const WEBP = new Uint8Array([
   0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
 ]);
+const ANIMATED_WEBP = new Uint8Array([...WEBP, 0x41, 0x4e, 0x49, 0x4d]);
+const GIF = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1]);
 
 function uniquePng(): Uint8Array {
   const bytes = new Uint8Array(PNG);
@@ -51,11 +54,32 @@ async function seedImage(status: "approved" | "pending", pending = 0) {
 }
 
 describe("images", () => {
-  it("sniffs png, jpeg, and webp magic bytes", () => {
+  it("sniffs png, jpeg, static/animated webp, and gif magic bytes", () => {
     expect(sniffMime(PNG)?.content_type).toBe("image/png");
     expect(sniffMime(JPEG)?.content_type).toBe("image/jpeg");
     expect(sniffMime(WEBP)?.content_type).toBe("image/webp");
+    expect(sniffMime(WEBP)?.animated).toBe(false);
+    expect(sniffMime(ANIMATED_WEBP)).toMatchObject({
+      content_type: "image/webp",
+      ext: "anim.webp",
+      animated: true,
+    });
+    expect(sniffMime(GIF)).toMatchObject({
+      content_type: "image/gif",
+      ext: "gif",
+      animated: true,
+    });
     expect(sniffMime(new Uint8Array([1, 2, 3]))).toBeNull();
+  });
+
+  it("stores animation markers in content-addressed object keys", async () => {
+    const webp = await putImage(env.ASSETS, ANIMATED_WEBP);
+    const gif = await putImage(env.ASSETS, GIF);
+    expect(webp.r2_key).toMatch(/\.anim\.webp$/);
+    expect(gif.r2_key).toMatch(/\.gif$/);
+    expect(isAnimatedR2Key(webp.r2_key)).toBe(true);
+    expect(isAnimatedR2Key(gif.r2_key)).toBe(true);
+    expect(isAnimatedR2Key("abc.webp")).toBe(false);
   });
 
   it("rejects unsupported or oversized images", () => {

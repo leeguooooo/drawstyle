@@ -111,7 +111,7 @@ VALUES (
   'and simple, never detailed or photorealistic.',
   'retro-comic',
   'approved',
-  1,
+  3,
   0,
   0,
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
@@ -168,7 +168,7 @@ VALUES
   ),
   (
     (SELECT id FROM drawstyle_styles WHERE slug = 'snoopy'),
-    'aa5c321e94128ae2d4a68f37a0de55f390d09edd61ec10788282de2c950b98d9.png',
+    'c461a6d1e4ca30f54d723c242dc4e75aaeb659243e9a5ccca690a590e8ea633c.png',
     'reference',
     'image/png',
     0,

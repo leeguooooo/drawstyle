@@ -12,6 +12,7 @@ import { putImage } from "../src/images";
 import { makeUser } from "./helpers";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
+const GIF = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1]);
 
 function uniq(prefix: string): string {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -132,6 +133,25 @@ describe("public styles read API", () => {
     expect(body.images[0].role).toBe("example");
     expect(body.images[0].url).toContain(`/img/${example.r2_key}`);
     expect(body.images[0].content_type).toBe("image/png");
+  });
+
+  it("marks animated image media in style detail", async () => {
+    const style = await makeReadStyle();
+    const stored = await putImage(env.ASSETS, GIF);
+    await addImage(env.DB, {
+      style_id: style.id,
+      r2_key: stored.r2_key,
+      role: "example",
+      content_type: stored.content_type,
+    });
+
+    const res = await app.request(`/api/styles/${style.slug}`, {}, env);
+    const body = (await res.json()) as {
+      images: Array<{ content_type: string; animated: boolean }>;
+    };
+    expect(body.images).toEqual([
+      expect.objectContaining({ content_type: "image/gif", animated: true }),
+    ]);
   });
 
   it("404s for pending, rejected, or unknown detail requests with API error shape", async () => {

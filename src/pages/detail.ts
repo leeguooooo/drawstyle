@@ -10,6 +10,7 @@ import {
 } from "../db";
 import { SITE_URL } from "../config";
 import { t, type Locale } from "../i18n";
+import { isAnimatedR2Key } from "../images";
 import { styleLdNode } from "./head";
 import { escapeHtml, page } from "./layout";
 
@@ -37,7 +38,7 @@ export async function detailPage(
     listComments(db, style.id),
   ]);
   const imgs = images
-    .map((image) => `<img class="zoomable" src="${origin}/img/${encodeURIComponent(image.r2_key)}" alt="${escapeHtml(image.role)}">`)
+    .map((image) => `<img class="zoomable${isAnimatedR2Key(image.r2_key) ? " animated-example" : ""}" loading="lazy" src="${origin}/img/${encodeURIComponent(image.r2_key)}" alt="${escapeHtml(image.role)}"${isAnimatedR2Key(image.r2_key) ? ' data-animated="true"' : ""}>`)
     .join("");
   const firstExample =
     images.find((image) => image.role === "example") ?? images[0];

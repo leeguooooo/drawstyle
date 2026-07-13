@@ -10,11 +10,12 @@ import {
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-export type ImageContentType = "image/png" | "image/jpeg" | "image/webp";
+export type ImageContentType = "image/png" | "image/jpeg" | "image/webp" | "image/gif";
 
 export interface SniffedImage {
   content_type: ImageContentType;
-  ext: "png" | "jpg" | "webp";
+  ext: "png" | "jpg" | "webp" | "anim.webp" | "gif";
+  animated: boolean;
 }
 
 export interface StoredImage {
@@ -47,7 +48,7 @@ export function sniffMime(input: ArrayBuffer | Uint8Array): SniffedImage | null 
     bytes[6] === 0x1a &&
     bytes[7] === 0x0a
   ) {
-    return { content_type: "image/png", ext: "png" };
+    return { content_type: "image/png", ext: "png", animated: false };
   }
   if (
     bytes.length >= 3 &&
@@ -55,7 +56,7 @@ export function sniffMime(input: ArrayBuffer | Uint8Array): SniffedImage | null 
     bytes[1] === 0xd8 &&
     bytes[2] === 0xff
   ) {
-    return { content_type: "image/jpeg", ext: "jpg" };
+    return { content_type: "image/jpeg", ext: "jpg", animated: false };
   }
   if (
     bytes.length >= 12 &&
@@ -68,9 +69,44 @@ export function sniffMime(input: ArrayBuffer | Uint8Array): SniffedImage | null 
     bytes[10] === 0x42 &&
     bytes[11] === 0x50
   ) {
-    return { content_type: "image/webp", ext: "webp" };
+    const animated = containsAscii(bytes, "ANIM") || containsAscii(bytes, "ANMF");
+    return {
+      content_type: "image/webp",
+      ext: animated ? "anim.webp" : "webp",
+      animated,
+    };
+  }
+  if (
+    bytes.length >= 6 &&
+    bytes[0] === 0x47 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x38 &&
+    (bytes[4] === 0x37 || bytes[4] === 0x39) &&
+    bytes[5] === 0x61
+  ) {
+    // GIF is treated as animated media even when it contains one frame. This
+    // keeps storage metadata deterministic without a full GIF block parser.
+    return { content_type: "image/gif", ext: "gif", animated: true };
   }
   return null;
+}
+
+function containsAscii(bytes: Uint8Array, text: string): boolean {
+  const needle = new TextEncoder().encode(text);
+  outer: for (let start = 12; start <= bytes.length - needle.length; start += 1) {
+    for (let index = 0; index < needle.length; index += 1) {
+      if (bytes[start + index] !== needle[index]) {
+        continue outer;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+export function isAnimatedR2Key(key: string): boolean {
+  return key.endsWith(".gif") || key.endsWith(".anim.webp");
 }
 
 function hex(bytes: Uint8Array): string {

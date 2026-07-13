@@ -8,6 +8,7 @@ import {
   type UserRow,
 } from "../db";
 import { t, type Locale } from "../i18n";
+import { isAnimatedR2Key } from "../images";
 import { escapeHtml, page } from "./layout";
 
 function imageUrl(origin: string, key: string): string {
@@ -58,9 +59,15 @@ async function styleCard(
   // card cover, matching the detail-page hero selection.
   const d = t(locale);
   const images = await getImagesForStyle(db, style.id, { pending: 0 });
-  const cover = images.find((image) => image.role === "example") ?? images[0];
+  const examples = images.filter((image) => image.role === "example");
+  // Prefer a still poster so a gallery page with many animated examples does
+  // not auto-play every loop at once. If a style only has animation, it still
+  // gets a useful cover and the browser plays it normally.
+  const cover = examples.find((image) => !isAnimatedR2Key(image.r2_key))
+    ?? examples[0]
+    ?? images[0];
   return `<article class="card">
-    ${cover ? `<img class="card-img" src="${imageUrl(origin, cover.r2_key)}" alt="">` : ""}
+    ${cover ? `<img class="card-img" loading="lazy" src="${imageUrl(origin, cover.r2_key)}" alt="">` : ""}
     <h2><a href="/${locale}/s/${escapeHtml(style.slug)}">${escapeHtml(style.name)}</a></h2>
     <p><span class="badge">${escapeHtml(style.kind)}</span> <span class="badge">${escapeHtml(categoryLabel(style.category, locale))}</span></p>
     <p class="muted">♥${style.likes_count} · ⇩${style.pulls_count}</p>

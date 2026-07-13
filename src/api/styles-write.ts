@@ -27,6 +27,7 @@ import {
   deleteImageRowsAndObjects,
   deleteUnreferencedObjects,
   putImage,
+  validateImageBytes,
 } from "../images";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9_-]*$/;
@@ -153,6 +154,15 @@ async function storeFiles(
   return rows;
 }
 
+async function validateFiles(files: File[], role: ImageRole): Promise<void> {
+  for (const file of files) {
+    const sniffed = validateImageBytes(await file.arrayBuffer());
+    if (role === "reference" && sniffed.animated) {
+      throw new ImageValidationError("reference images must be static");
+    }
+  }
+}
+
 async function parseBody(
   c: Context<{ Bindings: Env; Variables: AuthVariables }>,
 ): Promise<Record<string, unknown> | null> {
@@ -242,6 +252,10 @@ stylesWriteRoutes.post("/styles", requireUser, async (c) => {
     sort: number;
   }>;
   try {
+    // Validate the full batch before writing any R2 object so a bad later file
+    // cannot strand earlier uploads without DB rows.
+    await validateFiles(examples, "example");
+    await validateFiles(refs, "reference");
     images = [
       ...(await storeFiles(c.env, examples, "example")),
       ...(await storeFiles(c.env, refs, "reference")),
@@ -348,6 +362,7 @@ stylesWriteRoutes.put("/styles/:slug", requireUser, async (c) => {
     sort: number;
   }>;
   try {
+    await validateFiles(edit.refs, "reference");
     refs = await storeFiles(c.env, edit.refs, "reference");
   } catch (error) {
     if (error instanceof ImageValidationError) {
