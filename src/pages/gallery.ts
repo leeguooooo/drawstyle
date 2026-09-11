@@ -62,8 +62,11 @@ async function styleCard(
   const examples = images.filter((image) => image.role === "example");
   // Prefer a still poster so a gallery page with many animated examples does
   // not auto-play every loop at once. If a style only has animation, it still
-  // gets a useful cover and the browser plays it normally.
-  const cover = examples.find((image) => !isAnimatedR2Key(image.r2_key))
+  // gets a useful cover and the browser plays it normally. official_example
+  // (promoted by admin) outranks plain example images as cover.
+  const cover = images.find((image) => image.role === "official_example" && !isAnimatedR2Key(image.r2_key))
+    ?? images.find((image) => image.role === "official_example")
+    ?? examples.find((image) => !isAnimatedR2Key(image.r2_key))
     ?? examples[0]
     ?? images[0];
   return `<article class="card">

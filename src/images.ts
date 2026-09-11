@@ -4,6 +4,7 @@ import {
   countImagesByKey,
   deleteImagesByIds,
   getImagesByKey,
+  getPlayerUploadByKey,
   type ImageAccessRow,
   type ImageRow,
 } from "./db";
@@ -208,7 +209,9 @@ export async function imageProxy(
     return notFound();
   }
   const rows = await getImagesByKey(c.env.DB, key);
-  if (!canViewImage(rows, c.env, c.var.user)) {
+  const canViewStyleImage = canViewImage(rows, c.env, c.var.user);
+  const upload = canViewStyleImage ? null : await getPlayerUploadByKey(c.env.DB, key);
+  if (!canViewStyleImage && !upload) {
     return notFound();
   }
 
@@ -216,7 +219,7 @@ export async function imageProxy(
   if (!object?.body) {
     return notFound();
   }
-  const contentType = rows[0]?.content_type;
+  const contentType = rows[0]?.content_type ?? upload?.content_type;
   if (!contentType) {
     return notFound();
   }

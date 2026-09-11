@@ -55,6 +55,16 @@ export interface ImageAccessRow extends ImageRow {
   owner_user_id: number;
 }
 
+export interface PlayerUploadRow {
+  id: number;
+  machine_hash: string;
+  r2_key: string;
+  content_type: string;
+  size: number;
+  style_slug: string | null;
+  created_at: string;
+}
+
 export interface StyleTagRow {
   style_id: number;
   tag: string;
@@ -273,13 +283,125 @@ export async function countImagesByKey(
 ): Promise<number> {
   const row = await db
     .prepare(
-      `SELECT COUNT(*) AS count
-       FROM drawstyle_style_images
-       WHERE r2_key = ?`,
+      `SELECT
+         (SELECT COUNT(*) FROM drawstyle_style_images WHERE r2_key = ?) +
+         (SELECT COUNT(*) FROM drawstyle_player_uploads WHERE r2_key = ?) AS count`,
     )
-    .bind(r2_key)
+    .bind(r2_key, r2_key)
     .first<{ count: number }>();
   return row?.count ?? 0;
+}
+
+export async function countPlayerUploadsSince(
+  db: D1Database,
+  machineHash: string,
+  sinceIso: string,
+): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) AS count
+       FROM drawstyle_player_uploads
+       WHERE machine_hash = ? AND created_at >= ?`,
+    )
+    .bind(machineHash, sinceIso)
+    .first<{ count: number }>();
+  return row?.count ?? 0;
+}
+
+export async function createPlayerUpload(
+  db: D1Database,
+  input: {
+    machine_hash: string;
+    r2_key: string;
+    content_type: string;
+    size: number;
+    style_slug?: string | null;
+  },
+): Promise<PlayerUploadRow> {
+  const created_at = new Date().toISOString();
+  const row = await db
+    .prepare(
+      `INSERT INTO drawstyle_player_uploads (machine_hash, r2_key, content_type, size, style_slug, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       RETURNING id, machine_hash, r2_key, content_type, size, style_slug, created_at`,
+    )
+    .bind(
+      input.machine_hash,
+      input.r2_key,
+      input.content_type,
+      input.size,
+      input.style_slug ?? null,
+      created_at,
+    )
+    .first<PlayerUploadRow>();
+  if (!row) {
+    throw new Error("createPlayerUpload: INSERT ... RETURNING produced no row");
+  }
+  return row;
+}
+
+export async function getPlayerUploadByKey(
+  db: D1Database,
+  r2_key: string,
+): Promise<PlayerUploadRow | null> {
+  const row = await db
+    .prepare(
+      `SELECT id, machine_hash, r2_key, content_type, size, style_slug, created_at
+       FROM drawstyle_player_uploads
+       WHERE r2_key = ?
+       ORDER BY id ASC
+       LIMIT 1`,
+    )
+    .bind(r2_key)
+    .first<PlayerUploadRow>();
+  return row ?? null;
+}
+
+export async function listPlayerUploadsByStyle(
+  db: D1Database,
+  styleSlug: string,
+  options: { page?: number } = {},
+): Promise<PlayerUploadRow[]> {
+  const page = Math.max(1, options.page ?? 1);
+  const result = await db
+    .prepare(
+      `SELECT id, machine_hash, r2_key, content_type, size, style_slug, created_at
+       FROM drawstyle_player_uploads
+       WHERE style_slug = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT ? OFFSET ?`,
+    )
+    .bind(styleSlug, 60, (page - 1) * 60)
+    .all<PlayerUploadRow>();
+  return result.results;
+}
+
+export async function getPlayerUploadById(
+  db: D1Database,
+  id: number,
+): Promise<PlayerUploadRow | null> {
+  const row = await db
+    .prepare(
+      `SELECT id, machine_hash, r2_key, content_type, size, style_slug, created_at
+       FROM drawstyle_player_uploads
+       WHERE id = ?`,
+    )
+    .bind(id)
+    .first<PlayerUploadRow>();
+  return row ?? null;
+}
+
+export async function deletePlayerUploadById(
+  db: D1Database,
+  id: number,
+): Promise<void> {
+  await db
+    .prepare(
+      `DELETE FROM drawstyle_player_uploads
+       WHERE id = ?`,
+    )
+    .bind(id)
+    .run();
 }
 
 export async function getStyleBySlug(

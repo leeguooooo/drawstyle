@@ -149,6 +149,13 @@ export interface Dict {
   badgeNew: string;
 
   statusLabels: Record<StyleStatus, string>;
+
+  generationsTitle: string;
+  generationsHeading: string;
+  generationsDesc: (name: string) => string;
+  generationsEmpty: string;
+  generationsCount: (n: number) => string;
+  generationsNav: string;
 }
 
 const zh: Dict = {
@@ -190,6 +197,13 @@ const zh: Dict = {
   fork: "复刻",
   edit: "编辑",
   versionLabel: (n) => `版本 ${n}`,
+
+  generationsTitle: "玩家作品",
+  generationsHeading: "同款风格作品",
+  generationsDesc: (name) => `看看其他玩家用「${name}」风格生成的作品。`,
+  generationsEmpty: "还没有玩家上传作品——来当第一个！",
+  generationsCount: (n) => `已有 ${n} 位玩家作品，点击可放大。`,
+  generationsNav: "玩家作品",
 
   submitTitle: "投稿",
   submitHeadingNew: "投稿风格",
@@ -275,6 +289,13 @@ const en: Dict = {
   fork: "Fork",
   edit: "Edit",
   versionLabel: (n) => `version ${n}`,
+
+  generationsTitle: "Generations",
+  generationsHeading: "Player generations",
+  generationsDesc: (name) => `See what other players created with the ${name} style preset on drawstyle.`,
+  generationsEmpty: "No player uploads yet — be the first!",
+  generationsCount: (n) => `${n} generation${n === 1 ? "" : "s"} so far.`,
+  generationsNav: "Player generations",
 
   submitTitle: "Submit",
   submitHeadingNew: "Submit a style",

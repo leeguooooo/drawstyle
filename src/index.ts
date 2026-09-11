@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { adminRoutes } from "./api/admin";
 import { stylesReadRoutes } from "./api/styles-read";
 import { stylesWriteRoutes } from "./api/styles-write";
+import { uploadRoutes } from "./api/uploads";
 import { authOptional, isAdminEmail, type AuthVariables } from "./auth";
 import { imageProxy } from "./images";
 import { DEFAULT_LOCALE, isLocale, LOCALES, pickLocale, type Locale } from "./i18n";
@@ -10,6 +11,7 @@ import { oidcRoutes } from "./oidc";
 import { adminPage } from "./pages/admin";
 import { detailPage } from "./pages/detail";
 import { galleryPage } from "./pages/gallery";
+import { generationsPage } from "./pages/generations";
 import { mePage } from "./pages/me";
 import { submitPage, submitSignInGate } from "./pages/submit";
 import { seoRoutes } from "./seo";
@@ -85,6 +87,7 @@ app.get("/docs/:slug", (c) => {
 app.route("/", seoRoutes);
 app.route("/api", stylesReadRoutes);
 app.route("/api", stylesWriteRoutes);
+app.route("/api", uploadRoutes);
 app.route("/api", adminRoutes);
 
 // --- language switcher: set the lang cookie, then bounce back ---
@@ -146,6 +149,17 @@ for (const locale of LOCALES) {
       }),
     ),
   );
+
+  app.get(`/${locale}/s/:slug/generations`, authOptional, async (c) => {
+    const html = await generationsPage(
+      c.env.DB,
+      new URL(c.req.url).origin,
+      locale,
+      c.req.param("slug"),
+      c.var.user,
+    );
+    return html ? c.html(html) : c.notFound();
+  });
 
   app.get(`/${locale}/s/:slug`, authOptional, async (c) => {
     const html = await detailPage(

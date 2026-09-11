@@ -5,8 +5,11 @@ import {
   approveNewStyle,
   approveStyleRevision,
   delistStyle,
+  deletePlayerUploadById,
   getImagesForStyle,
+  getPlayerUploadById,
   getStyleById,
+  getStyleBySlug,
   listPendingReviewStyles,
   rejectNewStyle,
   rejectStyleRevision,
@@ -16,6 +19,7 @@ import {
 import {
   ImageValidationError,
   deleteImageRowsAndObjects,
+  deleteUnreferencedObjects,
   putImage,
 } from "../images";
 
@@ -222,4 +226,49 @@ adminRoutes.post("/admin/styles/:id/official-example", async (c) => {
     }
     throw error;
   }
+});
+
+// Admin: hard-delete a player upload (DB row + R2 object if unreferenced).
+adminRoutes.delete("/admin/uploads/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isSafeInteger(id) || id < 1) {
+    return errorJson("not_found", "upload not found", 404);
+  }
+  const upload = await getPlayerUploadById(c.env.DB, id);
+  if (!upload) {
+    return errorJson("not_found", "upload not found", 404);
+  }
+  // Delete row first
+  await deletePlayerUploadById(c.env.DB, id);
+  // Then drop the R2 object if no surviving row references it
+  await deleteUnreferencedObjects(c.env, [upload.r2_key]);
+  return c.json({ ok: true });
+});
+
+// Admin: promote a player upload to the style's official example (reuses the
+// existing R2 object — no re-upload needed). The resulting official_example
+// row is attached to the upload's style_slug style and can serve as cover.
+adminRoutes.post("/admin/uploads/:id/promote", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isSafeInteger(id) || id < 1) {
+    return errorJson("not_found", "upload not found", 404);
+  }
+  const upload = await getPlayerUploadById(c.env.DB, id);
+  if (!upload) {
+    return errorJson("not_found", "upload not found", 404);
+  }
+  if (!upload.style_slug) {
+    return errorJson("no_style", "upload has no associated style", 400);
+  }
+  const style = await getStyleBySlug(c.env.DB, upload.style_slug);
+  if (!style || style.status !== "approved") {
+    return errorJson("bad_style", "style not found or not approved", 404);
+  }
+  const row = await addImage(c.env.DB, {
+    style_id: style.id,
+    r2_key: upload.r2_key,
+    role: "official_example",
+    content_type: upload.content_type,
+  });
+  return c.json({ image: { id: row.id, role: row.role, url: `/img/${encodeURIComponent(row.r2_key)}` } });
 });

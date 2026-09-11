@@ -37,11 +37,15 @@ export async function detailPage(
     getUserById(db, style.owner_user_id),
     listComments(db, style.id),
   ]);
+  // official_example (admin-promoted cover) shown first, then example, then reference
+  images.sort((a, b) => {
+    const pri = { official_example: 0, example: 1, reference: 2 } as Record<string, number>;
+    return (pri[a.role] ?? 99) - (pri[b.role] ?? 99) || a.sort - b.sort || a.id - b.id;
+  });
   const imgs = images
     .map((image) => `<img class="zoomable${isAnimatedR2Key(image.r2_key) ? " animated-example" : ""}" loading="lazy" src="${origin}/img/${encodeURIComponent(image.r2_key)}" alt="${escapeHtml(image.role)}"${isAnimatedR2Key(image.r2_key) ? ' data-animated="true"' : ""}>`)
     .join("");
-  const firstExample =
-    images.find((image) => image.role === "example") ?? images[0];
+  const firstExample = images[0];
   const ogImage = firstExample ? absImage(firstExample.r2_key) : undefined;
   const canonicalPath = `/${locale}/s/${style.slug}`;
   // Like button reflects the viewer's state and toggles: DELETE when already
@@ -112,6 +116,7 @@ export async function detailPage(
     </p>
     <p class="muted">${escapeHtml(d.versionLabel(style.version))} · ♥${style.likes_count} · ⇩${style.pulls_count}</p>
     ${ownerTools}
+    <p><a class="button secondary" href="/${locale}/s/${escapeHtml(style.slug)}/generations">${escapeHtml(d.generationsNav)}</a></p>
     ${commentsSection}`,
   });
 }
