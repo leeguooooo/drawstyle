@@ -36,7 +36,7 @@ const CATEGORY_KEYS = new Set<string>(CATEGORIES.map((category) => category.key)
 const STYLE_KINDS = new Set(["style", "character"]);
 const DAILY_SUBMISSION_LIMIT = 10;
 const MAX_NAME_LENGTH = 120;
-const MAX_SNIPPET_LENGTH = 4000;
+const MAX_SNIPPET_LENGTH = 10000;
 const MAX_TAGS = 10;
 const MAX_TAG_LENGTH = 40;
 const MAX_REFS = 4;
