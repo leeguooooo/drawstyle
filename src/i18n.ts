@@ -82,6 +82,9 @@ export interface Dict {
   footerMadeBy: string;
   footerBlog: string;
   footerTagline: string;
+  footerMoreHeading: string;
+  footerMoreChooseBrowser: string;
+  footerMorePastyx: string;
   navLogin: string;
   navLogout: string;
   langSwitch: string;
@@ -167,6 +170,9 @@ const zh: Dict = {
   footerMadeBy: "由",
   footerBlog: "博客",
   footerTagline: "面向 AI 绘图的社区画风画廊",
+  footerMoreHeading: "作者的其他作品",
+  footerMoreChooseBrowser: "按网址规则，把每个链接自动用对的浏览器 / Profile 打开的 Mac 小工具。",
+  footerMorePastyx: "在线剪贴板，免安装，多设备实时同步（也有原生 Mac 版）。",
   navLogin: "登录",
   navLogout: "退出",
   langSwitch: "EN",
@@ -259,6 +265,9 @@ const en: Dict = {
   footerMadeBy: "by",
   footerBlog: "Blog",
   footerTagline: "a community gallery of AI drawing styles",
+  footerMoreHeading: "More from the author",
+  footerMoreChooseBrowser: "A Mac app that opens every link in the right browser or profile, by URL rules.",
+  footerMorePastyx: "An online clipboard that syncs across all your devices — no install (native Mac app too).",
   navLogin: "Sign in",
   navLogout: "Sign out",
   langSwitch: "中文",

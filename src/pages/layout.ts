@@ -123,6 +123,10 @@ export function page(opts: PageOptions): string {
     .site-footer .foot-brand { font-family:var(--font-marker); color:var(--accent-text); }
     .site-footer a { color:var(--accent-2); text-decoration:none; }
     .site-footer a:hover { text-decoration:underline wavy var(--accent); text-underline-offset:3px; }
+    .foot-more { max-width:640px; margin:10px auto 0; padding-top:10px; border-top:1px dashed var(--muted); font-size:13px; line-height:1.7; }
+    .foot-more h2 { font-family:var(--font-body); font-size:12px; font-weight:600; letter-spacing:.5px; margin:0 0 4px; color:var(--muted); }
+    .foot-more ul { list-style:none; margin:0; padding:0; }
+    .foot-more li { margin:2px 0; }
     .signin-gate { max-width:460px; margin:40px auto; text-align:center; }
     .signin-gate h1 { margin-top:0; }
     /* hand-drawn file dropzone (progressively enhanced from a raw file input) */
@@ -139,7 +143,7 @@ export function page(opts: PageOptions): string {
     .dropzone__name { display:block; font-size:11px; color:var(--muted); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .dropzone__rm { position:absolute; top:-8px; right:-8px; width:22px; height:22px; padding:0; border-radius:50%; background:var(--danger); border:2px solid var(--ink); color:#fff; font-size:13px; line-height:1; box-shadow:none; }
   </style>
-  <script src="https://blog.leeguoo.com/scripts/visitor-beacon.js" defer></script>
+  <script src="https://blog.leeguoo.com/scripts/visitor-beacon.js?v=20260930-clicks" defer></script>
   <script>(function(){if(window.__lgPH)return;window.__lgPH=1;function start(){if(window.posthog&&window.posthog.__loaded)return;var done=false;function init(api){if(done||!window.posthog||!window.posthog.init)return;done=true;window.posthog.init('phc_P763fJAjFo1FFvtWdCzg1v0jhOYyYe57SS9pJ1Q31SL',{api_host:api,ui_host:'https://us.posthog.com',defaults:'2026-05-30',person_profiles:'identified_only',disable_session_recording:true,capture_pageview:true,capture_pageleave:true,capture_performance:true,autocapture:true,capture_heatmaps:true});}function load(base,api,fail){var s=document.createElement('script');s.async=true;s.crossOrigin='anonymous';s.src=base+'/static/array.js';var t=setTimeout(function(){if(!done&&fail){s.onerror=s.onload=null;fail();}},6000);s.onload=function(){clearTimeout(t);init(api);};s.onerror=function(){clearTimeout(t);if(!done&&fail)fail();};document.head.appendChild(s);}load('https://us-assets.i.posthog.com','https://us.i.posthog.com',function(){load('https://ph.leeguoo.com','https://ph.leeguoo.com',null);});}if('requestIdleCallback' in window){requestIdleCallback(start,{timeout:3000});}else{setTimeout(start,1500);}})();</script>
 </head>
 <body>
@@ -161,6 +165,13 @@ export function page(opts: PageOptions): string {
   <footer class="site-footer">
     <p><span class="foot-brand">${escapeHtml(d.brand)}</span> — ${escapeHtml(d.footerTagline)}</p>
     <p class="muted">${escapeHtml(d.footerMadeBy)} <a href="https://leeguoo.com/" rel="author">郭立 · Guo Li · leeguoo</a> · <a href="https://blog.leeguoo.com/">${escapeHtml(d.footerBlog)}</a> · <a href="/${locale}/docs">${escapeHtml(d.navDocs)}</a> · <a href="https://github.com/leeguooooo/drawstyle">GitHub</a></p>
+    <div class="foot-more muted">
+      <h2>${escapeHtml(d.footerMoreHeading)}</h2>
+      <ul>
+        <li><a href="https://choosebrowser.leeguoo.com/choose-browser/?utm_source=drawstyle.leeguoo.com&amp;utm_medium=cta&amp;utm_campaign=choosebrowser">ChooseBrowser</a> — ${escapeHtml(d.footerMoreChooseBrowser)}</li>
+        <li><a href="https://paste.leeguoo.com/?utm_source=drawstyle.leeguoo.com&amp;utm_medium=cta&amp;utm_campaign=pastyx">Pastyx</a> — ${escapeHtml(d.footerMorePastyx)}</li>
+      </ul>
+    </div>
   </footer>
   <div class="lightbox" hidden><img alt=""></div>
   <script>
