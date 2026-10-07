@@ -202,4 +202,18 @@ for (const locale of LOCALES) {
   });
 }
 
+// Behind Alibaba Cloud ESA (mainland China) the Worker is reached as drawstyle-origin.leeguoo.com.
+// Put the public hostname back first, so redirects, OAuth callbacks and absolute URLs stay on it.
+const ORIGIN_ALIAS = "drawstyle-origin.leeguoo.com";
+const PUBLIC_HOST = "drawstyle.leeguoo.com";
+const handle = app.fetch.bind(app);
+app.fetch = (request, env, ctx) => {
+  const url = new URL(request.url);
+  if (url.hostname === ORIGIN_ALIAS) {
+    url.hostname = PUBLIC_HOST;
+    request = new Request(url, request);
+  }
+  return handle(request, env, ctx);
+};
+
 export default app;
